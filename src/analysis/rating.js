@@ -201,24 +201,44 @@ export function teknikOzet(barlar) {
   };
 }
 
-/** Getiri tablosu — grafiksiz de olsa "yüzde kaç kazandırmış" sorusunun cevabı. */
+/**
+ * Getiri tablosu — "yüzde kaç kazandırmış" sorusunun cevabı.
+ *
+ * Dönemler TAKVİM GÜNÜ ile ölçülür, bar sayısıyla değil. Sebebi:
+ * her piyasanın yıllık işlem günü sayısı farklı (BIST ~250, döviz ~260,
+ * kripto 365), ve sentetik seriler (gram altın = ons × kur) hizalama
+ * sırasında gün kaybeder. Sabit bar sayısı bu durumlarda ya yanlış dönemi
+ * ölçer ya da hiç sonuç veremez.
+ */
 export function getiriler(barlar) {
-  const kapanis = barlar.map((b) => b.c);
-  const son = kapanis.at(-1);
-  const geri = (n) => {
-    if (kapanis.length <= n) return null;
-    const eski = kapanis[kapanis.length - 1 - n];
-    return Number((((son / eski) - 1) * 100).toFixed(2));
+  if (!barlar.length) return {};
+  const son = barlar.at(-1).c;
+  const sonZaman = barlar.at(-1).t;
+
+  // N takvim günü öncesine en yakın (ondan önceki veya o günkü) barı bul
+  const geri = (gun) => {
+    const hedef = sonZaman - gun * 24 * 3600 * 1000;
+    let aday = null;
+    for (const b of barlar) {
+      if (b.t <= hedef) aday = b;
+      else break;
+    }
+    // Seri hedef tarihe kadar uzanmıyorsa dürüst davran: null dön, uydurma
+    if (!aday || aday === barlar.at(-1)) return null;
+    return Number((((son / aday.c) - 1) * 100).toFixed(2));
   };
+
   return {
-    gun: geri(1),
-    hafta: geri(5),
-    ay: geri(21),
-    ucAy: geri(63),
-    altiAy: geri(126),
-    yil: geri(252),
+    gun: barlar.length >= 2
+      ? Number((((son / barlar.at(-2).c) - 1) * 100).toFixed(2))
+      : null,
+    hafta: geri(7),
+    ay: geri(30),
+    ucAy: geri(91),
+    altiAy: geri(182),
+    yil: geri(365),
     ytd: (() => {
-      const yilBasi = new Date(new Date().getFullYear(), 0, 1).getTime();
+      const yilBasi = new Date(new Date(sonZaman).getFullYear(), 0, 1).getTime();
       const bar = barlar.find((b) => b.t >= yilBasi);
       return bar ? Number((((son / bar.c) - 1) * 100).toFixed(2)) : null;
     })(),

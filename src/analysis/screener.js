@@ -1,6 +1,6 @@
 import { uzunBarlar } from '../sources/market.js';
 import { teknikOzet, getiriler } from './rating.js';
-import { ASSETS } from '../config.js';
+import { ASSETS, ONS_GRAM } from '../config.js';
 import { hata, log } from '../util.js';
 
 // BIST'te likit ve yaygın takip edilen semboller.
@@ -60,8 +60,102 @@ async function tekSembol(kod, sembol, ad) {
   };
 }
 
+/**
+ * GRAM ALTIN — Yahoo'da böyle bir sembol yok, sentetik seri kuruyoruz:
+ *   gram altın (TL) = ons altın (USD) x USD/TRY / 31,1034768
+ *
+ * İki seriyi TARİHE GÖRE hizalamak şart: ons altın vadelisi ile döviz farklı
+ * takvimlerde işlem görür, indeksle çarpmak günleri kaydırıp yanlış seri üretir.
+ *
+ * Not: bu "has altın" karşılığıdır. Kuyumcudaki alış-satış makası (%2-4) dahil
+ * değildir — gerçek alım maliyeti bunun üzerine biner.
+ */
+const gunAnahtari = (ms) => new Date(ms).toISOString().slice(0, 10);
+
+export async function gramAltinOzet() {
+  const [ons, kur] = await Promise.all([
+    uzunBarlar('GC=F', '1y'),
+    uzunBarlar('TRY=X', '1y'),
+  ]);
+
+  const kurHarita = new Map(kur.map((b) => [gunAnahtari(b.t), b]));
+  const barlar = [];
+  for (const o of ons) {
+    const k = kurHarita.get(gunAnahtari(o.t));
+    if (!k) continue; // eşleşen kur günü yoksa o günü atla
+    barlar.push({
+      t: o.t,
+      c: (o.c * k.c) / ONS_GRAM,
+      h: ((o.h ?? o.c) * (k.h ?? k.c)) / ONS_GRAM,
+      l: ((o.l ?? o.c) * (k.l ?? k.c)) / ONS_GRAM,
+      v: null, // ons kontratının hacmi gram altını temsil etmez
+    });
+  }
+
+  if (barlar.length < 35) throw new Error('gram altın için yeterli hizalı veri yok');
+
+  const ozet = teknikOzet(barlar);
+  if (ozet.yeterliVeri) {
+    ozet.baglam.hacimOrani = null;
+    ozet.baglam.hacimNotu = 'Sentetik seri (ons × kur) — hacim verisi yok';
+  }
+
+  return {
+    kod: 'gram_altin',
+    ad: 'Gram Altın',
+    sembol: 'GRAM_ALTIN',
+    fiyat: Number(barlar.at(-1).c.toFixed(2)),
+    hacim: null,
+    getiri: getiriler(barlar),
+    teknik: ozet.yeterliVeri ? {
+      etiket: ozet.genel.etiket, kodEtiket: ozet.genel.kod, renk: ozet.genel.renk,
+      puan: ozet.genel.puan,
+      maEtiket: ozet.hareketliOrtalamalar.etiket, osEtiket: ozet.osilatorler.etiket,
+      al: ozet.hareketliOrtalamalar.al + ozet.osilatorler.al,
+      notr: ozet.hareketliOrtalamalar.notr + ozet.osilatorler.notr,
+      sat: ozet.hareketliOrtalamalar.sat + ozet.osilatorler.sat,
+    } : null,
+    baglam: ozet.yeterliVeri ? ozet.baglam : null,
+    seri: barlar.slice(-90).map((b) => Number(b.c.toFixed(2))),
+    sentetik: true,
+  };
+}
+
+/** Gram altının tam teknik dökümü (detay paneli için). */
+export async function gramAltinDetay() {
+  const [ons, kur] = await Promise.all([
+    uzunBarlar('GC=F', '1y'),
+    uzunBarlar('TRY=X', '1y'),
+  ]);
+  const kurHarita = new Map(kur.map((b) => [gunAnahtari(b.t), b]));
+  const barlar = [];
+  for (const o of ons) {
+    const k = kurHarita.get(gunAnahtari(o.t));
+    if (!k) continue;
+    barlar.push({
+      t: o.t,
+      c: (o.c * k.c) / ONS_GRAM,
+      h: ((o.h ?? o.c) * (k.h ?? k.c)) / ONS_GRAM,
+      l: ((o.l ?? o.c) * (k.l ?? k.c)) / ONS_GRAM,
+      v: null,
+    });
+  }
+  const ozet = teknikOzet(barlar);
+  if (ozet.yeterliVeri) {
+    ozet.baglam.hacimOrani = null;
+    ozet.baglam.hacimNotu = 'Sentetik seri (ons × kur) — hacim verisi yok';
+  }
+  return {
+    sembol: 'GRAM_ALTIN',
+    ozet,
+    getiri: getiriler(barlar),
+    seri: barlar.slice(-250).map((b) => ({ t: b.t, c: Number(b.c.toFixed(2)) })),
+  };
+}
+
 /** Tek sembolün özeti — sembolden koda/ada kendisi karar verir. */
 export async function tekSembolOzet(sembol) {
+  if (sembol === 'GRAM_ALTIN') return gramAltinOzet();
   const varlik = ASSETS.find((a) => a.sembol === sembol);
   const kod = varlik?.key ?? sembol.replace(/\.IS$/, '');
   return tekSembol(kod, sembol, varlik?.ad);
@@ -93,6 +187,14 @@ export async function bistTara({ zorla = false, onIlerleme = null } = {}) {
 /** Ana varlıklar (altın, kur, endeks, emtia) için teknik özet. */
 export async function makroTara({ zorla = false } = {}) {
   const sonuc = [];
+
+  // Gram altın en başa: Türkiye'deki yatırımcı için en çok bakılan varlık.
+  try {
+    sonuc.push(await gramAltinOzet());
+  } catch (e) {
+    hata('Gram altın hesaplanamadı:', e.message);
+  }
+
   for (const a of ASSETS) {
     try {
       sonuc.push(await tekSembol(a.key, a.sembol, a.ad));
@@ -105,6 +207,7 @@ export async function makroTara({ zorla = false } = {}) {
 
 /** Tek bir varlığın tam teknik dökümü (indikatör indikatör). */
 export async function detay(sembol) {
+  if (sembol === 'GRAM_ALTIN') return gramAltinDetay();
   const barlar = await uzunBarlar(sembol, '1y');
   const ozet = teknikOzet(barlar);
   return {

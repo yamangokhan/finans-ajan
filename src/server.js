@@ -8,6 +8,7 @@ import { tcmbKur, canliFiyatlar, SPARK_AZAMI } from './sources/market.js';
 import { ASSETS, ONS_GRAM } from './config.js';
 import { haberleriTopla } from './sources/news.js';
 import { yaklasanOlaylar } from './calendar.js';
+import { haremAkis } from './sources/harem.js';
 import { log, hata, trNow } from './util.js';
 
 const KOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -27,6 +28,8 @@ const durum = {
   canliZaman: null,
   canliHata: null,
 };
+
+let harem = null;       // Harem Altın kalıcı soket akışı
 
 // --- CANLI FİYAT DÖNGÜSÜ ---
 // Ağır teknik analizden bağımsız. Tek toplu istekle tüm sembolleri çeker (~1 sn).
@@ -134,6 +137,15 @@ const sunucu = http.createServer(async (req, res) => {
       });
     }
 
+    // Harem Altın: gerçek piyasa alış/satış fiyatları ve makaslar.
+    // Kalıcı soket bağlantısından beslenir, istek anında ağa çıkmaz.
+    if (yol === '/api/harem') {
+      return json(res, {
+        urunler: harem?.veri() ?? null,
+        zaman: harem?.zaman() ?? null,
+      });
+    }
+
     // Hafif uç nokta: sadece canlı fiyatlar. Panel bunu sık çağırır.
     if (yol === '/api/canli') {
       return json(res, {
@@ -206,6 +218,9 @@ sunucu.listen(PORT, '0.0.0.0', async () => {
 
   log(`Panel hazır → http://localhost:${PORT}`);
   for (const a of adresler) log(`  telefondan (aynı Wi-Fi) → http://${a}:${PORT}`);
+
+  // Harem soketi push tabanlı: tek bağlantı açık kalır, veri kendiliğinden akar.
+  harem = haremAkis();
 
   canliTazele();
   verileriTazele();

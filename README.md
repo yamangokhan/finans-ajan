@@ -170,6 +170,7 @@ Bilgisayarını sürekli açık tutmak istemiyorsan bir VPS'e taşımak gerekir
 | Kaynak | Durum | Not |
 |---|---|---|
 | Yahoo Finance | ✅ Çalışıyor | Hisse, emtia, kur, endeks. Hız limiti var — istekler 1,5 sn aralıklı gider |
+| **Harem Altın** | ✅ Çalışıyor | **Gerçek piyasa alış/satış fiyatları ve makaslar.** Gram, çeyrek, yarım, tam, ata, gremse, 22/14 ayar + döviz + gümüş/platin/paladyum. socket.io WebSocket (HTTP polling reddediliyor) |
 | TCMB günlük kur | ✅ Çalışıyor | Resmî kur, anahtarsız |
 | Google News / CNBC / MarketWatch / AA / Investing RSS | ✅ Çalışıyor | ~80-100 başlık/tarama |
 | TCMB EVDS (enflasyon, politika faizi) | ⏳ Anahtar gerekli | evds2.tcmb.gov.tr'den ücretsiz kayıt |

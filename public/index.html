@@ -141,6 +141,31 @@ table.ekran tbody tr { cursor: pointer; }
 .hacim-cubuk { display: inline-block; height: 4px; border-radius: 2px; background: var(--accent);
                vertical-align: middle; margin-right: 6px; }
 
+/* ---- Harem altın/döviz tablosu ---- */
+.harem { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+.harem-grup { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.harem-grup h3 { margin: 0; padding: 11px 14px; font-size: 11px; font-weight: 650;
+                 letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted);
+                 border-bottom: 1px solid var(--border); }
+.hsatir { display: grid; grid-template-columns: 1.5fr 1fr 1fr 0.8fr; gap: 8px;
+          padding: 8px 14px; border-bottom: 1px solid var(--grid); align-items: baseline; font-size: 13px; }
+.hsatir:last-child { border-bottom: 0; }
+.hsatir.baslik { color: var(--ink-muted); font-size: 10.5px; text-transform: uppercase;
+                 letter-spacing: .04em; font-weight: 600; background: rgba(255,255,255,.02); }
+.hsatir > :not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.hsatir .urun { color: var(--ink-2); }
+.hsatir .satis { font-weight: 620; color: var(--ink); }
+/* Makas: yüksekse uyarı rengi — ama sayı da yazılı, renk tek taşıyıcı değil */
+.makas-dusuk  { color: var(--flat); }
+.makas-orta   { color: #d9a441; }
+.makas-yuksek { color: var(--down); font-weight: 620; }
+.harem-not { color: var(--ink-muted); font-size: 12px; margin-top: 10px; line-height: 1.6; }
+
+@media (max-width: 760px) {
+  .harem { grid-template-columns: 1fr; }
+  .hsatir { grid-template-columns: 1.4fr 1fr 1fr 0.7fr; padding: 8px 12px; font-size: 12.5px; }
+}
+
 /* ---- Haber & takvim ---- */
 .iki-sutun { display: grid; gap: 18px; grid-template-columns: 1.4fr 1fr; }
 @media (max-width: 900px) { .iki-sutun { grid-template-columns: 1fr; } }
@@ -248,6 +273,9 @@ table.ekran tbody tr { cursor: pointer; }
 <h2>Makro varlıklar</h2>
 <div class="tiles" id="makro"><div class="bos">Veri çekiliyor… ilk yükleme ~1 dakika sürer.</div></div>
 <div id="detay-kutu"></div>
+
+<h2>Altın &amp; döviz — gerçek piyasa <span style="text-transform:none;letter-spacing:0;font-weight:400">(Harem Altın)</span></h2>
+<div id="harem-kutu"><div class="bos">Yükleniyor…</div></div>
 
 <h2>BIST tarayıcı</h2>
 <div class="sekmeler" id="sekmeler"></div>
@@ -523,6 +551,58 @@ function tabloCiz() {
   });
 }
 
+const HAREM_GRUP = { altin: '🥇 Altın', doviz: '💵 Döviz', diger: '⚪ Diğer metaller' };
+
+function haremCiz() {
+  const kutu = document.getElementById('harem-kutu');
+  const u = VERI?.harem;
+  if (!u || !Object.keys(u).length) {
+    kutu.innerHTML = '<div class="bos">Harem Altın verisi alınamadı.</div>';
+    return;
+  }
+
+  const gruplar = {};
+  for (const v of Object.values(u)) (gruplar[v.grup] ??= []).push(v);
+
+  const makasSinif = (m) => (m < 1 ? 'makas-dusuk' : m < 3 ? 'makas-orta' : 'makas-yuksek');
+
+  let html = '<div class="harem">';
+  for (const [g, baslik] of Object.entries(HAREM_GRUP)) {
+    const liste = (gruplar[g] ?? []).sort((a, b) => a.sira - b.sira);
+    if (!liste.length) continue;
+    html += `<div class="harem-grup"><h3>${baslik}</h3>
+      <div class="hsatir baslik"><span>Ürün</span><span>Alış</span><span>Satış</span><span>Makas</span></div>`;
+    for (const v of liste) {
+      const b = v.satis > 1000 ? 0 : 2;
+      html += `<div class="hsatir">
+        <span class="urun">${v.ad}</span>
+        <span>${nf(v.alis, b)}</span>
+        <span class="satis">${nf(v.satis, b)}</span>
+        <span class="${makasSinif(v.makas)}">%${nf(v.makas, 2)}</span>
+      </div>`;
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+
+  const enDusuk = Object.values(u).filter((v) => v.grup === 'altin').sort((a, b) => a.makas - b.makas)[0];
+  html += `<div class="harem-not">
+    <b>Makas</b>, aynı anda alıp geri satsan kaybedeceğin yüzdedir — fiyat hiç değişmese bile ödediğin maliyet.
+    Bu yüzden aynı altını farklı üründen almak farklı paraya mal olur${enDusuk ? `; şu an en dar makas <b>${enDusuk.ad}</b> (%${nf(enDusuk.makas, 2)})` : ''}.
+    <br>Kaynak: Harem Altın canlı akışı${VERI.haremZaman ? ` · ${new Date(VERI.haremZaman).toLocaleTimeString('tr-TR')}` : ''}.
+    Bilgi amaçlıdır, yatırım tavsiyesi değildir.
+  </div>`;
+
+  kutu.innerHTML = html;
+}
+
+async function haremCek() {
+  try {
+    const h = await (await fetch('/api/harem')).json();
+    if (h?.urunler) { VERI.harem = h.urunler; VERI.haremZaman = h.zaman; haremCiz(); }
+  } catch { /* kaynak geçici olarak yok */ }
+}
+
 function yanCiz() {
   const h = document.getElementById('haberler');
   h.innerHTML = (VERI?.haberler ?? []).length
@@ -609,8 +689,8 @@ async function netlifyTara(semboller, hedef) {
 async function ilkYukleme() {
   VERI = { makro: [], bist: [], haberler: [], olaylar: [] };
 
-  // 1) Canlı fiyatlar — anında ekrana bir şey gelsin
-  await canliCek();
+  // 1) Canlı fiyatlar + Harem — anında ekrana bir şey gelsin
+  await Promise.all([canliCek(), haremCek()]);
 
   // 2) Mod tespiti: yerel sunucuda /api/veri var mı?
   try {
@@ -626,7 +706,8 @@ async function ilkYukleme() {
     await yerelCek();
     setInterval(yerelCek, 60_000);
   } else {
-    const MAKRO = ['GC=F','SI=F','TRY=X','EURTRY=X','XU100.IS','XU030.IS','BZ=F','DX-Y.NYB','^VIX','^GSPC','BTC-USD'];
+    // GRAM_ALTIN sentetik: sunucuda ons x kur olarak hesaplanır, en başta dursun
+    const MAKRO = ['GRAM_ALTIN','GC=F','SI=F','TRY=X','EURTRY=X','XU100.IS','XU030.IS','BZ=F','DX-Y.NYB','^VIX','^GSPC','BTC-USD'];
     const BIST = ['THYAO','AKBNK','GARAN','ISCTR','YKBNK','VAKBN','HALKB','KCHOL','SAHOL','ASELS','EREGL',
                   'BIMAS','TUPRS','SISE','TCELL','FROTO','TOASO','PGSUS','SASA','PETKM','ARCLK','TAVHL',
                   'ENKAI','TTKOM','MGROS','ULKER','DOAS','OYAKC','ASTOR','EKGYO','HEKTS','GUBRF','ALARK',
@@ -638,8 +719,9 @@ async function ilkYukleme() {
     }).catch(() => {});
   }
 
-  // Fiyatlar her 30 sn tazelenir (hafif uç nokta)
+  // Fiyatlar her 30 sn tazelenir (hafif uç noktalar)
   setInterval(canliCek, 30_000);
+  setInterval(haremCek, 30_000);
 }
 
 async function yerelCek() {
@@ -653,7 +735,7 @@ async function yerelCek() {
 
 document.getElementById('btn-tazele').onclick = async (e) => {
   e.target.disabled = true;
-  await canliCek();
+  await Promise.all([canliCek(), haremCek()]);
   if (MOD === 'yerel') { fetch('/api/tazele').catch(() => {}); }
   setTimeout(() => { e.target.disabled = false; }, 4000);
 };

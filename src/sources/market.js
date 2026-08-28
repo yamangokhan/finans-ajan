@@ -70,14 +70,43 @@ async function gunlukBarlar(sembol) {
   return barlar;
 }
 
-// Teknik analiz geçmişi. ÖLÇÜLDÜ: '2y' isteği ~28 sn sürüyor, '1y' ~0,2 sn (139 kat).
-// 1 yıl = ~255 bar; SMA 200 ve 1 yıllık getiri için yeterli. Varsayılan bilinçli olarak '1y'.
+/**
+ * Teknik analiz geçmişi.
+ *
+ * ÖLÇÜLDÜ: `range=2y` isteği ~28 sn sürüyor (Yahoo boğuyor), oysa açık tarih
+ * aralığı (period1/period2) 400 gün için ~0,2-1,4 sn. Ayrıca `range=1y` tam
+ * 365 günü ancak kapsadığı için yıllık getiri sınırda null kalabiliyordu.
+ * Bu yüzden varsayılan: açık tarih aralığıyla 400 gün.
+ */
+const VARSAYILAN_GUN = 400;
 const uzunOnbellek = new Map();
-export async function uzunBarlar(sembol, range = '1y') {
-  const anahtar = `${sembol}:${range}`;
+
+export async function uzunBarlar(sembol, gunSayisi = VARSAYILAN_GUN) {
+  // Geriye dönük uyumluluk: '1y' / '2y' gibi eski çağrılar da çalışsın
+  if (typeof gunSayisi === 'string') {
+    gunSayisi = { '1y': 400, '2y': 730, '6mo': 190, '3mo': 95 }[gunSayisi] ?? VARSAYILAN_GUN;
+  }
+
+  const anahtar = `${sembol}:${gunSayisi}`;
   const kayit = uzunOnbellek.get(anahtar);
   if (kayit && Date.now() - kayit.zaman < GUNLUK_TAZELIK_MS) return kayit.barlar;
-  const { barlar } = await chart(sembol, range, '1d');
+
+  const simdi = Math.floor(Date.now() / 1000);
+  const url =
+    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sembol)}` +
+    `?period1=${simdi - gunSayisi * 86400}&period2=${simdi}&interval=1d`;
+
+  const res = await siraliGetir(url);
+  const j = await res.json();
+  const r = j?.chart?.result?.[0];
+  if (!r?.timestamp) {
+    throw new Error(`${sembol}: veri yok (${j?.chart?.error?.description ?? 'bilinmeyen'})`);
+  }
+  const q = r.indicators.quote[0];
+  const barlar = r.timestamp
+    .map((t, i) => ({ t: t * 1000, c: q.close?.[i], h: q.high?.[i], l: q.low?.[i], v: q.volume?.[i] }))
+    .filter((b) => Number.isFinite(b.c));
+
   uzunOnbellek.set(anahtar, { zaman: Date.now(), barlar });
   return barlar;
 }
