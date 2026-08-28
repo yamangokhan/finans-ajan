@@ -1,0 +1,20 @@
+{
+  "name": "finans-ajan",
+  "version": "0.1.0",
+  "description": "7/24 piyasa gozcusu: anomali tespiti, haber korelasyonu, takvim uyarilari ve Telegram bildirimleri",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "panel": "node src/server.js",
+    "rapor": "node -e \"import('./src/analysis/report.js').then(m=>m.rapor())\"",
+    "tek-tur": "node src/index.js --once",
+    "panorama": "node src/index.js --panorama",
+    "test-veri": "node src/index.js --test"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0"
+  }
+}

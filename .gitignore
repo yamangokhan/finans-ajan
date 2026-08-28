@@ -1,0 +1,9 @@
+node_modules/
+.env
+data/state.json
+data/portfolio.json
+data/prices/
+*.log
+*.err
+panel.log
+panel.err

@@ -1,0 +1,56 @@
+name: Finans Ajanı — piyasa taraması
+
+# GitHub Actions'ın izin verdiği en sık aralık 5 dakikadır.
+# UYARI (GitHub dokümanından): zamanlanmış işler yoğunluk anlarında gecikebilir,
+# "yoğun saatler her saatin başıdır" — Fed/TCMB kararları da :00'da açıklanır.
+# Gecikme kabul edilemezse Oracle Cloud Always Free VPS'e taşı (README'de anlatıldı).
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:        # elle tetikleme (test için)
+
+# Aynı anda iki tarama çalışmasın — mükerrer bildirim üretir
+concurrency:
+  group: piyasa-taramasi
+  cancel-in-progress: false
+
+jobs:
+  tara:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Bağımlılıkları kur
+        run: npm ci --omit=dev || npm install --omit=dev
+
+      # Bildirim tekrarını önleyen durum dosyası çalışmalar arasında saklanır.
+      # Anahtar her çalışmada değişir, restore-keys ile en son kayıt geri yüklenir.
+      - name: Önceki durumu geri yükle
+        uses: actions/cache/restore@v4
+        with:
+          path: data/state.json
+          key: ajan-durum-${{ github.run_id }}
+          restore-keys: |
+            ajan-durum-
+
+      - name: Taramayı çalıştır
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SESSIZ_BASLANGIC: '00'
+          SESSIZ_BITIS: '07'
+        run: node src/index.js --once
+
+      - name: Durumu sakla
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/state.json
+          key: ajan-durum-${{ github.run_id }}

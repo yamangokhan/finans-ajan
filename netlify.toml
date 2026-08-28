@@ -1,0 +1,32 @@
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+  # Derleme adımı yok — panel saf HTML/CSS/JS, bağımlılık gerektirmez.
+  command = "echo 'statik panel - derleme yok'"
+
+[functions]
+  node_bundler = "esbuild"
+  # Fonksiyonlar src/ ve data/ altındaki modülleri içeri alır
+  included_files = ["data/calendar.json"]
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"          # service worker güncellemesi anında görülsün
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Fonksiyon yolları netlify/functions/*.mjs içindeki `config.path` ile tanımlı:
+#   /api/canli     -> canli.mjs      (canlı fiyatlar, tek toplu istek)
+#   /api/tara      -> tara.mjs       (teknik analiz, grup başına en fazla 6 sembol)
+#   /api/detay     -> detay.mjs      (tek sembol tam döküm)
+#   /api/haberler  -> haberler.mjs   (haber akışı + takvim)

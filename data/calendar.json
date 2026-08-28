@@ -1,0 +1,44 @@
+{
+  "_aciklama": [
+    "Takvimi belli olaylar. 'tekrarlayan' kurallı olanlar otomatik hesaplanır.",
+    "'planli' ise tarihi elle girilecek olanlar — Fed FOMC, TCMB PPK, halka arz, bilanço.",
+    "Bu tarihler HER YIL DEĞİŞİR, uydurulmuş tarih koymuyoruz. Sen doğrulayıp gireceksin:",
+    "  TCMB PPK takvimi : tcmb.gov.tr > Para Politikası > PPK Toplantı Takvimi",
+    "  Fed FOMC takvimi : federalreserve.gov/monetarypolicy/fomccalendars.htm",
+    "  ABD TÜFE takvimi : bls.gov/schedule/news_release/cpi.htm",
+    "  Halka arzlar     : kap.org.tr",
+    "Saatler Türkiye saatidir (UTC+3)."
+  ],
+
+  "tekrarlayan": [
+    {
+      "id": "tuik-tufe",
+      "ad": "TÜİK Enflasyon (TÜFE) açıklaması",
+      "kural": "ayin-gunu:3",
+      "saat": "10:00",
+      "etkiler": ["usdtry", "bist100", "gram_altin"],
+      "onem": "kritik",
+      "not": "Reel getiri hesabının girdisi. TL varlıkların tamamını etkiler."
+    },
+    {
+      "id": "abd-tarim-disi",
+      "ad": "ABD Tarım Dışı İstihdam (NFP)",
+      "kural": "ayin-ilk-cuma",
+      "saat": "15:30",
+      "etkiler": ["ons_altin", "dxy", "sp500", "usdtry"],
+      "onem": "kritik",
+      "not": "Fed faiz beklentisini en sert oynatan tek veri. Altın ve dolarda anlık volatilite."
+    },
+    {
+      "id": "tuik-issizlik",
+      "ad": "TÜİK İşgücü İstatistikleri",
+      "kural": "ayin-gunu:10",
+      "saat": "10:00",
+      "etkiler": ["bist100", "usdtry"],
+      "onem": "normal",
+      "not": ""
+    }
+  ],
+
+  "planli": []
+}
