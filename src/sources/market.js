@@ -40,14 +40,32 @@ async function kuyrukIsle() {
   }
 }
 
-const siraliGetir = (url, opts) => kuyrugaAl(() => getir(url, {}, { deneme: 3, zamanAsimi: 20000 }), opts);
+// Yahoo aynı içeriği query1 ve query2 üzerinden sunar. ÖLÇÜLDÜ: bağlantı hataları
+// ("fetch failed") tek konağa özgü olabiliyor — ilk istekler düşerken ikinci konak
+// aynı anda cevap veriyordu. Bu yüzden konak arızasında ötekine düşülür.
+const KONAKLAR = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com'];
+
+async function yahooGetir(yol, opts) {
+  let sonHata;
+  for (const konak of KONAKLAR) {
+    try {
+      return await kuyrugaAl(
+        () => getir(`https://${konak}${yol}`, {}, { deneme: 2, zamanAsimi: 20000 }),
+        opts,
+      );
+    } catch (e) {
+      sonHata = e;
+    }
+  }
+  throw sonHata;
+}
+
 
 /** Yahoo chart API'sinden bar listesi çeker. */
 async function chart(sembol, range, interval) {
-  const url =
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sembol)}` +
-    `?range=${range}&interval=${interval}`;
-  const res = await siraliGetir(url);
+  const res = await yahooGetir(
+    `/v8/finance/chart/${encodeURIComponent(sembol)}?range=${range}&interval=${interval}`,
+  );
   const j = await res.json();
   const r = j?.chart?.result?.[0];
   if (!r?.timestamp) throw new Error(`${sembol}: veri yok (${j?.chart?.error?.description ?? 'bilinmeyen'})`);
@@ -92,11 +110,10 @@ export async function uzunBarlar(sembol, gunSayisi = VARSAYILAN_GUN) {
   if (kayit && Date.now() - kayit.zaman < GUNLUK_TAZELIK_MS) return kayit.barlar;
 
   const simdi = Math.floor(Date.now() / 1000);
-  const url =
-    `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sembol)}` +
-    `?period1=${simdi - gunSayisi * 86400}&period2=${simdi}&interval=1d`;
-
-  const res = await siraliGetir(url);
+  const res = await yahooGetir(
+    `/v8/finance/chart/${encodeURIComponent(sembol)}` +
+    `?period1=${simdi - gunSayisi * 86400}&period2=${simdi}&interval=1d`,
+  );
   const j = await res.json();
   const r = j?.chart?.result?.[0];
   if (!r?.timestamp) {
@@ -191,8 +208,8 @@ export const SPARK_AZAMI = 18;
  * Ağır teknik analizden ayrı: bu saniyeler içinde döner, sık çağrılabilir.
  */
 export async function canliFiyatlar(semboller) {
-  const url =
-    'https://query1.finance.yahoo.com/v7/finance/spark' +
+  const yol =
+    '/v7/finance/spark' +
     `?symbols=${encodeURIComponent(semboller.join(','))}&range=1d&interval=5m`;
 
   // Yahoo spark uç noktası tek istekte EN FAZLA 20 sembol kabul eder;
@@ -202,7 +219,7 @@ export async function canliFiyatlar(semboller) {
   }
 
   // Öncelikli: canlı fiyat, arka plandaki toplu taramanın arkasında beklemesin
-  const res = await siraliGetir(url, { oncelikli: true });
+  const res = await yahooGetir(yol, { oncelikli: true });
   const j = await res.json();
 
   // Hatayı sessizce yutma — boş sonuç döndürmek teşhisi imkânsızlaştırıyor

@@ -3,13 +3,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { envYukle } from './env.js';
+
 import { makroTara, bistTara, detay, tekSembolOzet, BIST_EVRENI } from './analysis/screener.js';
 import { tcmbKur, canliFiyatlar, SPARK_AZAMI } from './sources/market.js';
 import { ASSETS, ONS_GRAM } from './config.js';
 import { haberleriTopla } from './sources/news.js';
 import { yaklasanOlaylar } from './calendar.js';
 import { haremAkis } from './sources/harem.js';
+import { tcmbGostergeler } from './sources/evds.js';
 import { log, hata, trNow } from './util.js';
+
+envYukle();   // EVDS_API_KEY vb. panel sürecinde de tanımlı olsun
 
 const KOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(KOK, 'public');
@@ -27,6 +32,7 @@ const durum = {
   canli: null,          // { sembol: {fiyat, gun, seri...} } — saniyeler içinde tazelenir
   canliZaman: null,
   canliHata: null,
+  evds: null,           // TCMB resmî göstergeleri (anahtar yoksa null kalır)
 };
 
 let harem = null;       // Harem Altın kalıcı soket akışı
@@ -67,6 +73,15 @@ async function canliTazele() {
       };
     }
 
+    // Tüm parçalar boş dönerse (Yahoo'ya erişilemiyor ama istek de patlamadıysa)
+    // eldeki veriyi KORU. Yoksa panel "hata yok" deyip boş tablo gösteriyor,
+    // teşhis imkânsızlaşıyordu.
+    if (!Object.keys(birlesik).length) {
+      durum.canliHata = 'Yahoo canlı fiyat döndürmedi (bağlantı engelli olabilir)';
+      hata('Canlı fiyat:', durum.canliHata);
+      return;
+    }
+
     durum.canli = birlesik;
     durum.canliZaman = Date.now();
     durum.canliHata = null;
@@ -83,6 +98,8 @@ async function verileriTazele({ bistDahil = true } = {}) {
     log('Panel verisi tazeleniyor…');
     durum.makro = await makroTara();
     durum.kur = await tcmbKur();
+    // EVDS kendi 30 dk önbelleğini tutar; anahtar yoksa sessizce null döner.
+    durum.evds = await tcmbGostergeler();
     durum.haberler = (await haberleriTopla()).slice(0, 30);
     durum.olaylar = await yaklasanOlaylar(24 * 14);
     if (bistDahil) {
@@ -131,6 +148,7 @@ const sunucu = http.createServer(async (req, res) => {
         kur: durum.kur,
         haberler: durum.haberler,
         olaylar: durum.olaylar,
+        evds: durum.evds,
         guncelleme: durum.guncelleme,
         tarama: durum.tarama,
         saat: trNow().metin,
@@ -144,6 +162,12 @@ const sunucu = http.createServer(async (req, res) => {
         urunler: harem?.veri() ?? null,
         zaman: harem?.zaman() ?? null,
       });
+    }
+
+    // TCMB EVDS: resmî kur, politika faizi, TÜFE, rezervler.
+    // Netlify tarafındaki /api/evds ile aynı sözleşme.
+    if (yol === '/api/evds') {
+      return json(res, (await tcmbGostergeler()) ?? { gostergeler: null, kaynak: 'TCMB EVDS' });
     }
 
     // Hafif uç nokta: sadece canlı fiyatlar. Panel bunu sık çağırır.

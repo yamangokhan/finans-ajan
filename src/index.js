@@ -1,7 +1,4 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { envYukle } from './env.js';
 import { AYARLAR, ASSETS } from './config.js';
 import { log, hata, sleep, sayi, yuzde, ok, trNow } from './util.js';
 import { durumOku, durumYaz, fiyatKaydet } from './store.js';
@@ -11,22 +8,8 @@ import { sinyalleriBul, rejimOzeti } from './detect.js';
 import { notYaz, baglantiTest } from './analyst.js';
 import { gonder, guncellemeAl, botBilgi, kacis } from './telegram.js';
 import { yaklasanOlaylar, etkilenenVarliklar } from './calendar.js';
+import { tcmbGostergeler } from './sources/evds.js';
 
-// --- .env yükleyici (harici bağımlılık istemiyoruz) ---
-const KOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-function envYukle() {
-  const dosya = path.join(KOK, '.env');
-  if (!fs.existsSync(dosya)) return;
-  for (const satir of fs.readFileSync(dosya, 'utf8').split('\n')) {
-    const t = satir.trim();
-    if (!t || t.startsWith('#')) continue;
-    const i = t.indexOf('=');
-    if (i < 1) continue;
-    const anahtar = t.slice(0, i).trim();
-    const deger = t.slice(i + 1).trim().replace(/^["']|["']$/g, '');
-    if (!(anahtar in process.env)) process.env[anahtar] = deger;
-  }
-}
 envYukle();
 
 // ---------------- Biçimlendirme ----------------
@@ -334,6 +317,14 @@ async function veriTesti() {
   console.log(`  OK   ${olaylar.length} yaklaşan olay (30 gün)`);
   for (const o of olaylar.slice(0, 5)) console.log(`       ${trNow(new Date(o.zaman)).metin} — ${o.ad}`);
 
+  const evds = await tcmbGostergeler();
+  if (evds?.gostergeler) {
+    const g = evds.gostergeler;
+    console.log(`  OK   EVDS: politika faizi ${sayi(g.politikaFaizi?.deger, 2)}% · yıllık TÜFE ${sayi(g.tufeYillik?.deger, 2)}% · rezerv ${sayi(g.rezervToplam?.deger, 0)} M$`);
+  } else {
+    console.log(`  ${process.env.EVDS_API_KEY ? 'FAIL' : '—   '} EVDS: ${process.env.EVDS_API_KEY ? 'yanıt alınamadı' : 'EVDS_API_KEY tanımlı değil (opsiyonel)'}`);
+  }
+
   const claude = await baglantiTest();
   console.log(`  ${claude.ok ? 'OK  ' : 'FAIL'} Claude: ${claude.mesaj}`);
 }
@@ -343,7 +334,17 @@ async function main() {
 
   if (arg === '--test') return veriTesti();
 
-  await botBilgi();
+  // Telegram OPSİYONEL. Eskiden burada botBilgi() doğrudan çağrılıyordu ve token
+  // yoksa `throw` edip tüm çalışmayı öldürüyordu — GitHub Actions'taki 105 ardışık
+  // başarısızlığın sebebi buydu. Artık yapılandırma yoksa tarama sessizce devam eder,
+  // bildirim gönderilmez (gonder() zaten yapılandırma yoksa false döner).
+  if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+    await botBilgi().catch((e) => {
+      hata(`Telegram bağlanamadı: ${e.message} — bildirim gönderilmeyecek, tarama sürüyor.`);
+    });
+  } else {
+    log('Telegram yapılandırılmamış — bildirim gönderilmeyecek, tarama sürüyor.');
+  }
 
   if (arg === '--panorama') {
     const anlik = await piyasayiTara();

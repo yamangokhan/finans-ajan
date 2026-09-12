@@ -30,3 +30,4 @@
 #   /api/tara      -> tara.mjs       (teknik analiz, grup başına en fazla 6 sembol)
 #   /api/detay     -> detay.mjs      (tek sembol tam döküm)
 #   /api/haberler  -> haberler.mjs   (haber akışı + takvim)
+#   /api/evds      -> evds.mjs       (TCMB resmî göstergeler — EVDS_API_KEY ortam değişkeni gerekir)

@@ -277,6 +277,9 @@ table.ekran tbody tr { cursor: pointer; }
 <h2>Altın &amp; döviz — gerçek piyasa <span style="text-transform:none;letter-spacing:0;font-weight:400">(Harem Altın)</span></h2>
 <div id="harem-kutu"><div class="bos">Yükleniyor…</div></div>
 
+<h2 id="evds-baslik" style="display:none">TCMB resmî göstergeler <span style="text-transform:none;letter-spacing:0;font-weight:400">(EVDS — abonelik verisi)</span></h2>
+<div class="tiles" id="evds-kutu" style="display:none"></div>
+
 <h2>BIST tarayıcı</h2>
 <div class="sekmeler" id="sekmeler"></div>
 <div class="tablo-kutu">
@@ -596,6 +599,52 @@ function haremCiz() {
   kutu.innerHTML = html;
 }
 
+// ---------- TCMB EVDS ----------
+// Resmî istatistikler Yahoo'dan bağımsız bir kaynaktır: piyasa fiyatı yerine
+// TCMB/TÜİK'in yayımladığı veriyi gösterir. Anahtar yoksa bölüm hiç görünmez.
+const EVDS_SIRA = ['usd', 'eur', 'politikaFaizi', 'tufeYillik', 'fedFaizi', 'rezervToplam', 'rezervAltin', 'rezervDoviz'];
+
+function evdsCiz(veri) {
+  const baslik = document.getElementById('evds-baslik');
+  const kutu = document.getElementById('evds-kutu');
+  const g = veri?.gostergeler;
+  if (!g) { baslik.style.display = 'none'; kutu.style.display = 'none'; return; }
+
+  const kartlar = EVDS_SIRA.map((ad) => g[ad]).filter(Boolean);
+  if (!kartlar.length) { baslik.style.display = 'none'; kutu.style.display = 'none'; return; }
+
+  baslik.style.display = '';
+  kutu.style.display = '';
+  kutu.innerHTML = kartlar.map((x) => {
+    // Faiz serilerinde değişim "puan" farkıdır — yüzde işaretiyle göstermek yanlış olur.
+    const fark = x.degisim === null || x.degisim === undefined || !isFinite(x.degisim)
+      ? '<span class="delta flat">—</span>'
+      : x.degisimTipi === 'puan'
+        ? `<span class="delta ${x.degisim > 0.004 ? 'up' : x.degisim < -0.004 ? 'down' : 'flat'}">${
+            x.degisim > 0.004 ? '▲' : x.degisim < -0.004 ? '▼' : '▬'} ${x.degisim > 0 ? '+' : ''}${nf(x.degisim)} puan</span>`
+        : delta(x.degisim);
+
+    return `
+    <div class="tile">
+      <div class="ad">${x.ad}</div>
+      <div class="fiyat">${nf(x.deger, x.basamak ?? 2)}${x.birim === '%' ? '%' : ''}</div>
+      <div class="alt">
+        <div>
+          <div>${fark}</div>
+          <div style="margin-top:6px;font-size:11px;opacity:.65">${x.tarih ?? ''}${x.birim && x.birim !== '%' ? ' · ' + x.birim : ''}</div>
+        </div>
+        ${spark(x.gecmis)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function evdsCek() {
+  try {
+    evdsCiz(await (await fetch('/api/evds')).json());
+  } catch { /* EVDS isteğe bağlı — düşerse panel etkilenmez */ }
+}
+
 async function haremCek() {
   try {
     const h = await (await fetch('/api/harem')).json();
@@ -652,12 +701,15 @@ function canliUygula(fiyatlar) {
 async function canliCek() {
   try {
     const c = await (await fetch('/api/canli')).json();
-    if (c?.fiyatlar) {
+    if (c?.fiyatlar && Object.keys(c.fiyatlar).length) {
       canliUygula(c.fiyatlar);
       makroCiz(); tabloCiz();
       const yas = Math.round((Date.now() - c.zaman) / 1000);
       document.getElementById('guncelleme').textContent =
         `Fiyatlar ${yas < 60 ? yas + ' sn' : Math.round(yas / 60) + ' dk'} önce`;
+    } else if (c?.hata) {
+      // Sessizce boş kalmasın: fiyat gelmiyorsa sebebini yaz.
+      document.getElementById('guncelleme').textContent = `Fiyat alınamıyor — ${c.hata}`;
     }
   } catch { /* ağ yok — mevcut veri kalsın */ }
 }
@@ -689,8 +741,8 @@ async function netlifyTara(semboller, hedef) {
 async function ilkYukleme() {
   VERI = { makro: [], bist: [], haberler: [], olaylar: [] };
 
-  // 1) Canlı fiyatlar + Harem — anında ekrana bir şey gelsin
-  await Promise.all([canliCek(), haremCek()]);
+  // 1) Canlı fiyatlar + Harem + TCMB — anında ekrana bir şey gelsin
+  await Promise.all([canliCek(), haremCek(), evdsCek()]);
 
   // 2) Mod tespiti: yerel sunucuda /api/veri var mı?
   try {
@@ -722,6 +774,8 @@ async function ilkYukleme() {
   // Fiyatlar her 30 sn tazelenir (hafif uç noktalar)
   setInterval(canliCek, 30_000);
   setInterval(haremCek, 30_000);
+  // EVDS günde bir güncellenir — yarım saatte bir bakmak fazlasıyla yeter
+  setInterval(evdsCek, 30 * 60_000);
 }
 
 async function yerelCek() {

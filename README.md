@@ -20,8 +20,10 @@ sebebini açıklayan bir bilgi notu üretir ve Telegram'dan gönderir.
 
 ---
 
-Bu anahtar olmadan da bot çalışır — hareketi ve ilgili haber başlıklarını gönderir,
-sadece yorumlanmış analiz notunu üretemez.
+`.env` içindeki anahtarların **hepsi opsiyonel** — biri yoksa yalnızca o özellik devre
+dışı kalır, panel ve tarama çalışmaya devam eder: `EVDS_API_KEY` (TCMB göstergeleri),
+`ANTHROPIC_API_KEY` (analiz notu), `TELEGRAM_BOT_TOKEN` (bildirim).
+`.env` `.gitignore`'da — anahtarlar repoya girmez.
 
 ### Doğrulama
 
@@ -160,7 +162,7 @@ Bilgisayarını sürekli açık tutmak istemiyorsan bir VPS'e taşımak gerekir
 | **Harem Altın** | ✅ Çalışıyor | **Gerçek piyasa alış/satış fiyatları ve makaslar.** Gram, çeyrek, yarım, tam, ata, gremse, 22/14 ayar + döviz + gümüş/platin/paladyum. socket.io WebSocket (HTTP polling reddediliyor) |
 | TCMB günlük kur | ✅ Çalışıyor | Resmî kur, anahtarsız |
 | Google News / CNBC / MarketWatch / AA / Investing RSS | ✅ Çalışıyor | ~80-100 başlık/tarama |
-| TCMB EVDS (enflasyon, politika faizi) | ⏳ Anahtar gerekli | evds2.tcmb.gov.tr'den ücretsiz kayıt |
+| **TCMB EVDS** | ✅ Çalışıyor | Resmî kur, TCMB/Fed politika faizi, TÜFE + yıllık enflasyon, rezervler. Panelde "TCMB resmî göstergeler" bölümü. Anahtar `.env` → `EVDS_API_KEY` |
 | TEFAS (fonlar) | ❌ WAF korumalı | Düz HTTP ile çekilemiyor, tarayıcı otomasyonu gerekiyor (Faz 2) |
 | KAP (halka arz) | ❌ Endpoint bulunamadı | Site Next.js'e geçmiş, devtools'tan doğru adres yakalanacak (Faz 2) |
 
@@ -218,23 +220,21 @@ Android Studio ve JDK zaten kurulu olduğu için araç zinciri hazır.
 
 Panel Netlify'da barınır ama bot sürekli çalışan bir süreç ister. İki ücretsiz yol:
 
-### GitHub Actions (kolay, 5 dakikada bir)
+### GitHub Actions — KALDIRILDI
 
-`.github/workflows/bot.yml` hazır. Kurulum:
+`.github/workflows/bot.yml` silindi. Sebebi ölçüldü: iş akışı **105 çalışmanın
+105'inde de başarısız oldu** ve her seferinde e-posta gönderdi. Hata, taramanın
+Telegram'a bağlı olmasıydı — `TELEGRAM_BOT_TOKEN` secret'ı repoda tanımlı olmadığı
+için `getMe` `ok:false` dönüyor, bot daha piyasayı taramadan 1 saniye içinde
+`exit 1` ile ölüyordu.
 
-1. Depoyu GitHub'a **public** olarak yükle (public repo = sınırsız Actions dakikası;
-   private'ta ücretsiz kota aylık 2000 dakika ve 5 dakikalık cron bunu aşar)
-2. Repo → Settings → Secrets and variables → Actions → şu üçünü ekle:
-   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `ANTHROPIC_API_KEY`
-3. Actions sekmesinden iş akışını etkinleştir
+Telegram artık **opsiyonel**: token yoksa tarama çalışır, sadece bildirim gitmez.
+Bildirim istersen cron'u geri eklemek yerine aşağıdaki VPS yolunu kullan —
+zamanlanmış Actions işleri zaten çok geç tetikleniyordu (`*/5` yazılmasına rağmen
+ölçülen gerçek aralık ~3 saatti).
 
-> ⚠️ **Dürüst uyarı.** GitHub dokümanı açıkça şunu söylüyor: zamanlanmış işler
-> yoğunluk anlarında gecikebilir ve **"yoğun saatler her saatin başıdır"**.
-> Fed ve TCMB kararları da tam `:00`'da açıklanır — yani en kritik anda 10–15 dakika
-> geç kalabilirsin. Ayrıca public repoda **60 gün hareketsizlik** olursa zamanlanmış
-> iş otomatik devre dışı kalır.
->
-> `.env` dosyası `.gitignore`'da — token'lar repoya girmez, GitHub Secrets'ta durur.
+Gözlemek istediğin şey panelse, ona zaten gerek yok: Netlify paneli veriyi
+istek anında çeker.
 
 ### Oracle Cloud Always Free (daha iyi, biraz zahmetli)
 
