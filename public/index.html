@@ -481,6 +481,92 @@ table.ekran tbody tr:last-child td { border-bottom: 0; }
 #kabarcik.gorunur { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
 #kabarcik svg { width: 17px; height: 17px; color: var(--accent); flex: 0 0 auto; }
 
+/* ===================== RADAR (vade analizi) ===================== */
+.radar-ust {
+  position: relative; overflow: hidden; border-radius: 22px; padding: 20px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 30%, var(--surface)),
+                                      color-mix(in srgb, var(--accent-2) 14%, var(--surface)) 60%, var(--surface));
+  border: 1px solid var(--border-2); box-shadow: var(--golge); margin-bottom: 14px;
+}
+.radar-ust h3 { margin: 0 0 6px; font-size: 19px; font-weight: 720; letter-spacing: -.02em;
+                display: flex; align-items: center; gap: 9px; }
+.radar-ust h3 svg { width: 20px; height: 20px; }
+.radar-ust p { margin: 0; font-size: 12.5px; line-height: 1.65; color: var(--ink-2); max-width: 640px; }
+
+.vade-secim { display: flex; gap: 7px; margin: 14px 0 12px; overflow-x: auto; scrollbar-width: none; }
+.vade-secim::-webkit-scrollbar { display: none; }
+.vade-btn {
+  flex: 1 1 auto; min-width: 132px; text-align: left; padding: 11px 14px; border-radius: 14px; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border); transition: all var(--gecis);
+}
+.vade-btn b { display: block; font-size: 13.5px; font-weight: 680; }
+.vade-btn span { font-size: 11px; color: var(--ink-muted); }
+.vade-btn:hover { border-color: var(--border-2); transform: translateY(-1px); }
+.vade-btn.aktif { background: color-mix(in srgb, var(--accent) 13%, var(--surface));
+                  border-color: var(--accent); box-shadow: 0 4px 16px rgba(124,108,255,.22); }
+.vade-btn.aktif span { color: var(--ink-2); }
+
+.sira-kart {
+  display: flex; align-items: center; gap: 13px; padding: 14px; margin-bottom: 9px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--yuvarlak);
+  box-shadow: var(--golge-yum); cursor: pointer;
+  transition: transform var(--gecis), border-color var(--gecis), box-shadow var(--gecis);
+  animation: girisAc .3s cubic-bezier(.22,.8,.3,1) backwards;
+}
+.sira-kart:hover { transform: translateY(-2px); border-color: var(--border-2); box-shadow: var(--golge); }
+.madalya {
+  width: 30px; height: 30px; flex: 0 0 auto; border-radius: 10px; display: grid; place-items: center;
+  font-size: 13px; font-weight: 780; background: var(--surface-2); color: var(--ink-muted);
+  border: 1px solid var(--border);
+}
+.madalya.m1 { background: linear-gradient(140deg, #f5c451, #d99b1a); color: #2a1d00; border-color: transparent; }
+.madalya.m2 { background: linear-gradient(140deg, #d6dae4, #a7aebd); color: #23262e; border-color: transparent; }
+.madalya.m3 { background: linear-gradient(140deg, #dda06a, #b0713c); color: #2a1600; border-color: transparent; }
+
+.skor-kutu { flex: 0 0 auto; text-align: right; min-width: 74px; }
+.skor-sayi { font-size: 20px; font-weight: 740; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.skor-cubuk { height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; margin-top: 5px; }
+.skor-dolgu { height: 100%; border-radius: 3px; width: 0;
+              background: linear-gradient(90deg, var(--accent), var(--accent-2));
+              transition: width .7s cubic-bezier(.22,.8,.3,1); }
+
+.bilesenler { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.bilesen {
+  font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 8px;
+  background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.bilesen.iyi { color: var(--up); border-color: color-mix(in srgb, var(--up) 26%, transparent); background: var(--up-bg); }
+.bilesen.kotu { color: var(--down); border-color: color-mix(in srgb, var(--down) 26%, transparent); background: var(--down-bg); }
+.bilesen.risk { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+                background: color-mix(in srgb, var(--warn) 12%, transparent); }
+
+.neden { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--grid); display: none; }
+.sira-kart.acik .neden { display: block; animation: girisAc .24s ease; }
+.neden-satir { display: grid; grid-template-columns: 1fr 58px 84px; gap: 10px; align-items: center;
+               font-size: 12px; padding: 4px 0; }
+.neden-satir .ad { color: var(--ink-2); }
+.neden-satir .ham { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+.mini-cubuk { height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.mini-dolgu { height: 100%; background: var(--accent); border-radius: 3px; }
+
+/* ===================== FONLAR ===================== */
+.fon-kart {
+  padding: 15px; border-radius: var(--yuvarlak); background: var(--surface);
+  border: 1px solid var(--border); box-shadow: var(--golge-yum);
+  transition: transform var(--gecis), border-color var(--gecis);
+}
+.fon-kart:hover { transform: translateY(-2px); border-color: var(--border-2); }
+.fon-ust { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+.fon-ad { font-size: 14.5px; font-weight: 680; letter-spacing: -.01em; }
+.fon-gosterge { font-size: 11px; color: var(--ink-muted); }
+.fon-getiri { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+.fon-getiri > div { padding: 9px 4px; border-radius: 11px; background: var(--surface-2); border: 1px solid var(--border); }
+.fon-getiri .etiket { font-size: 10px; color: var(--ink-muted); text-transform: uppercase;
+                      letter-spacing: .04em; font-weight: 650; margin-bottom: 5px; }
+.fon-reel { margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--grid);
+            display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+
 /* ===================== MOBİL ===================== */
 @media (max-width: 760px) {
   .kabuk { padding: 0 13px calc(100px + env(safe-area-inset-bottom)); }
@@ -584,6 +670,12 @@ table.ekran tbody tr:last-child td { border-bottom: 0; }
     <rect x="3" y="5" width="18" height="16" rx="2.4"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
   <symbol id="i-kalkan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 3l7.5 3v5.6c0 4.6-3.1 8.3-7.5 9.4-4.4-1.1-7.5-4.8-7.5-9.4V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></symbol>
+  <symbol id="i-radar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><path d="M12 12l6-4.5"/></symbol>
+  <symbol id="i-fon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 3.2a8.8 8.8 0 108.8 8.8H12z"/><path d="M14.6 2.6A8.8 8.8 0 0121.4 9.4h-6.8z"/></symbol>
+  <symbol id="i-saat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/><path d="M12 7.2V12l3.2 2"/></symbol>
 </svg>
 
 <div class="kabuk">
@@ -610,7 +702,9 @@ table.ekran tbody tr:last-child td { border-bottom: 0; }
   <nav class="gezinme" id="gezinme" role="tablist">
     <span class="gez-fon" id="gez-fon"></span>
     <button class="gez-btn aktif" data-gorunum="piyasalar" role="tab"><svg><use href="#i-piyasa"/></svg>Piyasalar</button>
+    <button class="gez-btn" data-gorunum="radar" role="tab"><svg><use href="#i-radar"/></svg>Radar</button>
     <button class="gez-btn" data-gorunum="bist" role="tab"><svg><use href="#i-liste"/></svg>BIST</button>
+    <button class="gez-btn" data-gorunum="fonlar" role="tab"><svg><use href="#i-fon"/></svg>Fonlar</button>
     <button class="gez-btn" data-gorunum="portfoy" role="tab"><svg><use href="#i-cuzdan"/></svg>Portföy</button>
     <button class="gez-btn" data-gorunum="tcmb" role="tab"><svg><use href="#i-banka"/></svg>TCMB</button>
     <button class="gez-btn" data-gorunum="haberler" role="tab"><svg><use href="#i-haber"/></svg>Haberler</button>
@@ -632,6 +726,55 @@ table.ekran tbody tr:last-child td { border-bottom: 0; }
     <div class="baslik-satir"><h2>Altın &amp; döviz <span class="ek">· gerçek piyasa (Harem Altın)</span></h2></div>
     <div id="harem-kutu"></div>
     <div class="bilgi" style="margin-top:12px" id="harem-not"></div>
+  </section>
+
+  <!-- ============ RADAR ============ -->
+  <section class="gorunum" id="g-radar" role="tabpanel">
+    <div class="radar-ust">
+      <h3><svg><use href="#i-radar"/></svg> Vade Radarı</h3>
+      <p>Her vade için <b>farklı ölçütler</b> önemlidir: kısa vadede momentum ve hacim teyidi,
+      orta vadede trendin sağlığı, uzun vadede enflasyona karşı reel getiri ve dayanıklılık.
+      Aşağıdaki puan, takip edilen tüm varlıklar <i>kendi aralarında</i> sıralanarak hesaplanır
+      (yüzdelik sıra) — yani "100" en iyi tahmin değil, <b>bu ölçütlerde listenin en üstü</b> demektir.
+      Her kartta "Neden?" ile puanın hangi ölçütten geldiğini ham değerleriyle görebilirsin.</p>
+    </div>
+
+    <div class="bilgi dikkat">
+      <svg><use href="#i-uyari"/></svg>
+      <div><b>Bu bir ölçüm ve sıralama aracıdır, yatırım tavsiyesi değildir.</b>
+      Tüm ölçütler <i>geçmiş</i> fiyat verisinden hesaplanır ve geçmiş getiri geleceği göstermez.
+      Hangi varlığın kazandıracağını hiçbir gösterge bilemez; burada gördüğün şey "şu anda hangi
+      varlık hangi ölçütte nerede duruyor" sorusunun mekanik cevabıdır. Kararı sen verirsin.</div>
+    </div>
+
+    <div class="vade-secim" id="vade-secim"></div>
+    <div class="cipler" id="radar-evren"></div>
+    <div id="radar-liste"></div>
+  </section>
+
+  <!-- ============ FONLAR ============ -->
+  <section class="gorunum" id="g-fonlar" role="tabpanel">
+    <div class="radar-ust">
+      <h3><svg><use href="#i-fon"/></svg> Fon karşılaştırma</h3>
+      <p>TEFAS fon fiyatları dışarıdan çekilemiyor (site bot korumasının arkasında, veri uçları kapalı).
+      Bunun yerine burada her fon kategorisinin <b>göstergesi</b> duruyor: fonun takip ettiği şey.
+      Kendi fonunun getirisini yaz, kategorisinin göstergesini ve enflasyonu geçip geçmediğini gör —
+      bir fonu değerlendirmenin doğru yolu zaten budur.</p>
+    </div>
+
+    <div class="form-kart">
+      <div class="alanlar">
+        <div class="alan"><label for="f-kategori">Fon kategorisi</label><select id="f-kategori"></select></div>
+        <div class="alan"><label for="f-getiri">Fonunun getirisi (%)</label><input id="f-getiri" type="number" step="any" placeholder="örn. 42"></div>
+        <div class="alan"><label for="f-vade">Dönem</label><select id="f-vade">
+          <option value="ay">1 ay</option><option value="ucAy">3 ay</option><option value="yil" selected>1 yıl</option></select></div>
+        <button class="btn-ana" id="f-karsilastir"><svg><use href="#i-grafik"/></svg>Karşılaştır</button>
+      </div>
+      <div id="f-sonuc" style="margin-top:12px"></div>
+    </div>
+
+    <div class="baslik-satir"><h2>Kategori göstergeleri</h2></div>
+    <div class="varliklar" id="fon-kutu"></div>
   </section>
 
   <!-- ============ BIST ============ -->
@@ -863,6 +1006,10 @@ function gorunumAc(ad, kaydet = true) {
   fonKaydir();
   if (kaydet) { try { localStorage.setItem(GORUNUM_ANAHTAR, ad); } catch { /* yoksay */ } }
   window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Ağır bölümler yalnızca açıldığında hesaplanır/yüklenir
+  if (ad === 'radar') radarCiz();
+  if (ad === 'fonlar') fonCek();
 }
 /** Aktif sekmenin altındaki renkli zemini kaydır. */
 function fonKaydir() {
@@ -1461,7 +1608,328 @@ document.getElementById('a-ekle').onclick = async () => {
 function araclariCiz() {
   secenekDoldur('p-varlik'); secenekDoldur('a-varlik');
   reelCiz(); portfoyCiz(); alarmCiz(); alarmKontrol();
+  // Radar ve fonlar yalnız ekrandayken yeniden çizilir — boşuna hesap yok
+  if (document.getElementById('g-radar').classList.contains('aktif')) radarCiz();
+  if (document.getElementById('g-fonlar').classList.contains('aktif')) fonCiz();
 }
+
+// ========================= VADE RADARI =========================
+// Ne yapar: takip edilen varlıkları, vadeye göre DEĞİŞEN ölçütlerle kendi
+// aralarında sıralar. Puan mutlak bir değer değil, YÜZDELİK SIRA'dır:
+// "bu ölçütte listenin neresindesin". Böylece eşik uydurmak gerekmiyor ve
+// her sayı denetlenebilir — kartta ham değeri de yazıyor.
+//
+// Ne yapmaz: getiri tahmin etmez, al/sat demez. Geçmiş veriden hesaplanır.
+
+const VADELER = {
+  kisa: {
+    ad: 'Kısa vade', alt: '1–4 hafta · momentum ve teyit',
+    olcutler: [
+      { ad: 'Haftalık hareket', ag: 30, al: (x) => x.getiri?.hafta,        yon: 1,  bic: (v) => yzd(v) },
+      { ad: 'Teknik puan',      ag: 25, al: (x) => x.teknik?.puan,          yon: 1,  bic: (v) => nf(v, 2) },
+      { ad: 'Hacim teyidi',     ag: 20, al: (x) => x.baglam?.hacimOrani,    yon: 1,  bic: (v) => nf(v, 2) + 'x' },
+      { ad: 'Günlük hareket',   ag: 15, al: (x) => x.getiri?.gun,           yon: 1,  bic: (v) => yzd(v) },
+      { ad: 'Trend gücü (ADX)', ag: 10, al: (x) => x.baglam?.trendGucu,     yon: 1,  bic: (v) => nf(v, 0) },
+    ],
+  },
+  orta: {
+    ad: 'Orta vade', alt: '3–12 ay · trendin sağlığı',
+    olcutler: [
+      { ad: '3 aylık getiri',   ag: 30, al: (x) => x.getiri?.ucAy,          yon: 1,  bic: (v) => yzd(v) },
+      { ad: 'Aylık getiri',     ag: 20, al: (x) => x.getiri?.ay,            yon: 1,  bic: (v) => yzd(v) },
+      { ad: 'Teknik puan',      ag: 20, al: (x) => x.teknik?.puan,          yon: 1,  bic: (v) => nf(v, 2) },
+      { ad: 'Trend gücü (ADX)', ag: 15, al: (x) => x.baglam?.trendGucu,     yon: 1,  bic: (v) => nf(v, 0) },
+      { ad: 'Zirveye yakınlık', ag: 15, al: (x) => x.baglam?.zirve52Uzaklik, yon: 1, bic: (v) => yzd(v) },
+    ],
+  },
+  uzun: {
+    ad: 'Uzun vade', alt: '1–5 yıl · reel getiri ve dayanıklılık',
+    olcutler: [
+      // Uzun vadede tek anlamlı ölçü nominal değil REEL getiridir: enflasyonu yendi mi?
+      { ad: 'Reel yıllık getiri', ag: 40, al: (x) => reelGetiri(x.getiri?.yil, ENFLASYON?.yillik), yon: 1, bic: (v) => yzd(v) },
+      { ad: 'En sert düşüş (1y)', ag: 20, al: (x) => x.baglam?.maxDusus1Y,  yon: 1,  bic: (v) => yzd(v) },   // negatif; -10 > -40
+      // Oynaklık bir değişim değil büyüklüktür — işaret konmaz, az olan iyidir
+      { ad: 'Yıllık oynaklık',    ag: 20, al: (x) => x.baglam?.oynaklikYillik, yon: -1, bic: (v) => nf(v) + '%' },
+      { ad: '3 aylık getiri',     ag: 10, al: (x) => x.getiri?.ucAy,        yon: 1,  bic: (v) => yzd(v) },
+      { ad: 'Dipten uzaklık',     ag: 10, al: (x) => x.baglam?.dip52Uzaklik, yon: -1, bic: (v) => yzd(v) },  // dibe yakın = ucuz taraf
+    ],
+  },
+};
+const yzd = (v) => (isFinite(v) ? (v > 0 ? '+' : '') + nf(v) + '%' : '—');
+
+let radarVade = 'orta', radarEvren = 'tum';
+
+const RADAR_EVRENLER = [['tum', 'Tümü'], ['makro', 'Makro'], ['bist', 'BIST'], ['fon', 'Fonlar']];
+
+function radarEvreni() {
+  const makro = (VERI?.makro ?? []).map((x) => ({ ...x, _tur: 'makro' }));
+  const bist = (VERI?.bist ?? []).map((x) => ({ ...x, _tur: 'bist' }));
+  const fon = (VERI?.fonlar ?? []).map((x) => ({ ...x, _tur: 'fon' }));
+  const hepsi = [...makro, ...bist, ...fon].filter((x) => x.getiri && x.baglam);
+  return radarEvren === 'tum' ? hepsi : hepsi.filter((x) => x._tur === radarEvren);
+}
+
+/** Yüzdelik sıra: en düşük 0, en yüksek 100. Eşit değerlerde ortalama sıra. */
+function yuzdelikSira(degerler, deger) {
+  const gecerli = degerler.filter((v) => isFinite(v));
+  if (gecerli.length < 2 || !isFinite(deger)) return null;
+  const kucuk = gecerli.filter((v) => v < deger).length;
+  const esit = gecerli.filter((v) => v === deger).length;
+  return ((kucuk + (esit - 1) / 2) / (gecerli.length - 1)) * 100;
+}
+
+function radarHesapla() {
+  const evren = radarEvreni();
+  const vade = VADELER[radarVade];
+  if (evren.length < 3) return [];
+
+  // Her ölçüt için tüm evrenin değerlerini bir kez topla
+  const sutunlar = vade.olcutler.map((o) => ({
+    tanim: o,
+    degerler: evren.map((x) => { const v = o.al(x); return isFinite(v) ? v * o.yon : NaN; }),
+  }));
+
+  return evren.map((x, i) => {
+    const bilesenler = [];
+    let toplam = 0, agirlik = 0;
+
+    sutunlar.forEach((s) => {
+      const ham = s.tanim.al(x);
+      const p = yuzdelikSira(s.degerler, isFinite(ham) ? ham * s.tanim.yon : NaN);
+      // Ölçülemeyen bileşen puanı bozmasın: ağırlığı toplamdan düşülür
+      if (p === null) { bilesenler.push({ ad: s.tanim.ad, ham: null, p: null }); return; }
+      toplam += p * s.tanim.ag;
+      agirlik += s.tanim.ag;
+      bilesenler.push({ ad: s.tanim.ad, ham, metin: s.tanim.bic(ham), p });
+    });
+
+    return {
+      varlik: x,
+      skor: agirlik ? toplam / agirlik : null,
+      kapsam: agirlik / vade.olcutler.reduce((a, o) => a + o.ag, 0),
+      bilesenler,
+      riskler: riskIsaretleri(x),
+    };
+  }).filter((s) => s.skor !== null && s.kapsam >= 0.5)
+    .sort((a, b) => b.skor - a.skor);
+}
+
+/** Puanın gizlediği tehlikeler. Yüksek puan "risksiz" demek değil — bunlar ayrıca yazılır. */
+function riskIsaretleri(x) {
+  const r = [];
+  const b = x.baglam ?? {};
+  if (isFinite(b.trendGucu) && b.trendGucu < 20) r.push('ADX 20 altı — trend zayıf, teknik sinyaller güvenilmez');
+  if (isFinite(b.oynaklikYillik) && b.oynaklikYillik > 55) r.push(`Yüksek oynaklık %${nf(b.oynaklikYillik, 0)}`);
+  if (isFinite(b.maxDusus1Y) && b.maxDusus1Y < -35) r.push(`1 yılda %${nf(Math.abs(b.maxDusus1Y), 0)} düşüş gördü`);
+  if (isFinite(b.hacimOrani) && b.hacimOrani < 0.7) r.push('Hacim ortalamanın altında — hareket teyitsiz');
+  if (isFinite(b.zirve52Uzaklik) && b.zirve52Uzaklik > -2) r.push('52 hafta zirvesinde');
+  const reel = reelGetiri(x.getiri?.yil, ENFLASYON?.yillik);
+  if (isFinite(reel) && reel < 0) r.push(`Son 1 yılda enflasyonun altında (reel ${nf(reel)}%)`);
+  return r;
+}
+
+function radarCiz() {
+  const vadeKutu = document.getElementById('vade-secim');
+  vadeKutu.innerHTML = Object.entries(VADELER).map(([k, v]) => `
+    <div class="vade-btn ${radarVade === k ? 'aktif' : ''}" data-vade="${k}">
+      <b>${v.ad}</b><span>${v.alt}</span>
+    </div>`).join('');
+  vadeKutu.querySelectorAll('[data-vade]').forEach((b) => {
+    b.onclick = () => { radarVade = b.dataset.vade; radarCiz(); };
+  });
+
+  const evrenKutu = document.getElementById('radar-evren');
+  evrenKutu.innerHTML = RADAR_EVRENLER.map(([k, ad]) =>
+    `<button class="cip-btn ${radarEvren === k ? 'aktif' : ''}" data-evren="${k}">${ad}</button>`).join('');
+  evrenKutu.querySelectorAll('[data-evren]').forEach((b) => {
+    b.onclick = () => { radarEvren = b.dataset.evren; radarCiz(); };
+  });
+
+  const liste = document.getElementById('radar-liste');
+  const sonuc = radarHesapla();
+
+  if (!sonuc.length) {
+    liste.innerHTML = `<div class="kart"><div class="bos">${
+      radarEvren === 'fon' ? 'Fon göstergeleri için "Fonlar" sekmesini bir kez aç — veri oradan yüklenir.'
+                           : 'Sıralama için yeterli veri yok; tarama sürüyor olabilir.'}</div></div>`;
+    return;
+  }
+  if (radarVade === 'uzun' && !isFinite(ENFLASYON?.yillik)) {
+    liste.innerHTML = '<div class="bilgi dikkat">' + ikon('i-uyari', 17) +
+      '<div>Uzun vade sıralaması TÜFE verisi olmadan hesaplanamaz (EVDS anahtarı gerekli).</div></div>';
+    return;
+  }
+
+  liste.innerHTML = sonuc.slice(0, 20).map((s, i) => {
+    const x = s.varlik;
+    const madalya = i < 3 ? `m${i + 1}` : '';
+    const gorunen = s.bilesenler.filter((b) => b.p !== null).slice(0, 4);
+    return `
+    <div class="sira-kart" data-sira="${i}" style="animation-delay:${Math.min(i * 35, 400)}ms">
+      <div class="madalya ${madalya}">${i + 1}</div>
+      ${avatar(x.sembol, x.ad ?? x.kod)}
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span style="font-weight:660">${x.ad ?? x.kod}</span>
+          <span class="cip kucuk">${nf(x.fiyat, x.fiyat > 1000 ? 0 : 2)}</span>
+          ${cip(x.getiri?.gun, { kucuk: true })}
+        </div>
+        <div class="bilesenler">
+          ${gorunen.map((b) => `<span class="bilesen ${b.p >= 70 ? 'iyi' : b.p <= 30 ? 'kotu' : ''}">${b.ad}: ${b.metin}</span>`).join('')}
+          ${s.riskler.length ? `<span class="bilesen risk">${ikon('i-uyari', 11)} ${s.riskler.length} uyarı</span>` : ''}
+        </div>
+        <div class="neden">
+          ${s.bilesenler.map((b) => `
+            <div class="neden-satir">
+              <span class="ad">${b.ad}</span>
+              <span class="ham">${b.metin ?? '—'}</span>
+              <span class="mini-cubuk"><span class="mini-dolgu" style="width:${b.p === null ? 0 : b.p.toFixed(0)}%"></span></span>
+            </div>`).join('')}
+          ${s.riskler.length ? `<div style="margin-top:9px;font-size:11.5px;color:var(--warn);line-height:1.7">
+            ${s.riskler.map((r) => '⚠ ' + r).join('<br>')}</div>` : ''}
+          <div style="margin-top:9px;font-size:11px;color:var(--ink-muted)">
+            Çubuklar, bu varlığın o ölçütte ${radarEvreni().length} varlık içindeki yüzdelik sırasını gösterir.
+            Sağa doğru = listenin üst tarafı. Tahmin değil, ölçüm.</div>
+        </div>
+      </div>
+      <div class="skor-kutu">
+        <div class="skor-sayi">${nf(s.skor, 0)}</div>
+        <div class="skor-cubuk"><span class="skor-dolgu" data-genislik="${s.skor.toFixed(0)}"></span></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Puan çubukları bir kare sonra dolsun — geçiş animasyonu görünsün
+  requestAnimationFrame(() => {
+    liste.querySelectorAll('.skor-dolgu').forEach((d) => { d.style.width = d.dataset.genislik + '%'; });
+  });
+  liste.querySelectorAll('.sira-kart').forEach((k) => {
+    k.onclick = () => k.classList.toggle('acik');
+  });
+}
+
+// ========================= FONLAR =========================
+// TEFAS fiyatları çekilemiyor (F5 Shape bot koruması; API uçları kapalı).
+// Bunun yerine her fon kategorisinin GÖSTERGESİ gösterilir — fonun takip
+// ettiği şey. Kullanıcı kendi fonunun getirisini yazıp karşılaştırır.
+const FON_KATEGORI = [
+  { ad: 'Hisse fonu — BIST 30', sembol: 'XU030.IS', ikon: 'i-endeks', renk: 'var(--accent)' },
+  { ad: 'Hisse fonu — BIST 100', sembol: 'XU100.IS', ikon: 'i-endeks', renk: '#60a5fa' },
+  { ad: 'Banka ağırlıklı fon', sembol: 'XBANK.IS', ikon: 'i-banka', renk: '#2dd4bf' },
+  { ad: 'Sınai / üretim fonu', sembol: 'XUSIN.IS', ikon: 'i-endeks', renk: '#f472b6' },
+  { ad: 'Altın fonu', sembol: 'GRAM_ALTIN', ikon: 'i-altin', renk: 'var(--gold)' },
+  { ad: 'Gümüş fonu', sembol: 'SI=F', ikon: 'i-gumus', renk: '#b9c2d0' },
+  { ad: 'Döviz / eurobond fonu', sembol: 'TRY=X', ikon: 'i-dolar', renk: '#4ade80' },
+  { ad: 'Kripto (serbest) fon', sembol: 'BTC-USD', ikon: 'i-bitcoin', renk: '#f7931a' },
+];
+
+let fonYuklendi = false;
+
+async function fonCek() {
+  if (fonYuklendi) return;
+  // Sekme hatırlandığı için bu, ilk yükleme bitmeden de çağrılabilir
+  if (!VERI) VERI = { makro: [], bist: [], haberler: [], olaylar: [] };
+  fonYuklendi = true;
+  const kutu = document.getElementById('fon-kutu');
+  iskelet(kutu, 6);
+
+  // Makroda zaten taranmış olanları tekrar isteme — Yahoo'yu gereksiz yorma
+  const mevcut = new Map((VERI?.makro ?? []).map((x) => [x.sembol, x]));
+  const eksik = FON_KATEGORI.map((k) => k.sembol).filter((s) => !mevcut.has(s));
+
+  const toplanan = [];
+  for (const grup of parcala(eksik, 4)) {
+    try {
+      const y = await (await fetch('/api/tara?semboller=' + encodeURIComponent(grup.join(',')))).json();
+      toplanan.push(...(y.sonuclar ?? []));
+    } catch { /* bu grup atlanır */ }
+  }
+  VERI.fonlar = [...toplanan];
+  // Hiçbiri gelmediyse kilitlenip kalmasın — sekmeye tekrar girince yeniden denenir
+  if (!toplanan.length && !mevcut.size) fonYuklendi = false;
+  fonCiz();
+  araclariCiz();
+}
+
+const fonVarlik = (sembol) =>
+  (VERI?.fonlar ?? []).find((x) => x.sembol === sembol)
+  ?? (VERI?.makro ?? []).find((x) => x.sembol === sembol) ?? null;
+
+function fonCiz() {
+  const kutu = document.getElementById('fon-kutu');
+  const enf = ENFLASYON?.yillik;
+
+  kutu.innerHTML = FON_KATEGORI.map((k) => {
+    const v = fonVarlik(k.sembol);
+    if (!v) return '';
+    const reel = reelGetiri(v.getiri?.yil, enf);
+    return `
+    <div class="fon-kart">
+      <div class="fon-ust">
+        <span class="avatar" style="--c:${k.renk}">${ikon(k.ikon, 20)}</span>
+        <div style="min-width:0">
+          <div class="fon-ad">${k.ad}</div>
+          <div class="fon-gosterge">gösterge: ${v.ad ?? v.kod} · ${nf(v.fiyat, v.fiyat > 1000 ? 0 : 2)}</div>
+        </div>
+      </div>
+      <div class="fon-getiri">
+        <div><div class="etiket">1 ay</div>${cip(v.getiri?.ay, { kucuk: true })}</div>
+        <div><div class="etiket">3 ay</div>${cip(v.getiri?.ucAy, { kucuk: true })}</div>
+        <div><div class="etiket">1 yıl</div>${cip(v.getiri?.yil, { kucuk: true })}</div>
+      </div>
+      <div class="fon-reel">
+        <span style="color:var(--ink-muted)">Enflasyona göre (1 yıl)</span>
+        ${reel === null ? '<span class="cip">—</span>' : `${cip(reel, { kucuk: true })}
+          <span class="rozet ${reel > 0 ? 'r-al' : 'r-sat'}">${reel > 0 ? 'KORUDU' : 'ERİDİ'}</span>`}
+      </div>
+    </div>`;
+  }).join('') || '<div class="kart"><div class="bos">Gösterge verisi alınamadı.</div></div>';
+
+  const sec = document.getElementById('f-kategori');
+  if (sec && !sec.options.length) {
+    sec.innerHTML = FON_KATEGORI.map((k) => `<option value="${k.sembol}">${k.ad}</option>`).join('');
+  }
+}
+
+document.getElementById('f-karsilastir').onclick = () => {
+  const sembol = document.getElementById('f-kategori').value;
+  const getiri = Number(document.getElementById('f-getiri').value);
+  const vade = document.getElementById('f-vade').value;
+  const sonuc = document.getElementById('f-sonuc');
+  const v = fonVarlik(sembol);
+  const kategori = FON_KATEGORI.find((k) => k.sembol === sembol);
+
+  if (!v) { sonuc.innerHTML = '<div class="bos">Önce gösterge verisi yüklensin.</div>'; return; }
+  if (!isFinite(getiri)) { kabarcikGoster('Fonunun getirisini yaz (% olarak).'); return; }
+
+  const gosterge = v.getiri?.[vade];
+  const vadeAd = { ay: '1 ay', ucAy: '3 ay', yil: '1 yıl' }[vade];
+  // Enflasyon yalnız 1 yıl için doğrudan karşılaştırılabilir; kısa vadede aylık TÜFE kullanılır
+  const enf = vade === 'yil' ? ENFLASYON?.yillik : vade === 'ay' ? ENFLASYON?.aylik : null;
+  const fark = isFinite(gosterge) ? getiri - gosterge : null;
+  const reel = isFinite(enf) ? reelGetiri(getiri, enf) : null;
+
+  sonuc.innerHTML = `
+    <div class="liste">
+      <div class="satir" style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <span>Senin fonun (${vadeAd})</span><b>${yzd(getiri)}</b></div>
+      <div class="satir" style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <span>${kategori.ad} göstergesi</span>${cip(gosterge, { kucuk: true })}</div>
+      <div class="satir" style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <span>Göstergeye göre fark</span>
+        ${fark === null ? '<span class="cip">—</span>'
+          : `${cip(fark, { ek: ' puan', kucuk: true })}
+             <span class="rozet ${fark > 0 ? 'r-al' : 'r-sat'}">${fark > 0 ? 'GEÇTİ' : 'GERİDE'}</span>`}</div>
+      <div class="satir" style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <span>Enflasyona göre reel</span>
+        ${reel === null ? '<span class="cip">— (bu vade için TÜFE yok)</span>'
+          : `${cip(reel, { kucuk: true })}
+             <span class="rozet ${reel > 0 ? 'r-al' : 'r-sat'}">${reel > 0 ? 'ALIM GÜCÜ ARTTI' : 'ALIM GÜCÜ AZALDI'}</span>`}</div>
+    </div>
+    <div style="margin-top:10px;font-size:11.5px;color:var(--ink-muted);line-height:1.6">
+      Gösterge, fonun <i>takip ettiği</i> şeydir — fonun kendisi değil. Aradaki fark yönetim başarısını,
+      fon giderlerini ve fonun farklı dağılımını birlikte içerir.</div>`;
+};
 
 // ---------- veri katmanı ----------
 // İki dağıtım hedefi desteklenir:
@@ -1574,6 +2042,9 @@ async function ilkYukleme() {
   izinYaz();
   araclariCiz();
   fonKaydir();
+  // Fon kategorisi seçimi, sekme hiç açılmasa da dolu dursun
+  const fSec = document.getElementById('f-kategori');
+  if (!fSec.options.length) fSec.innerHTML = FON_KATEGORI.map((k) => `<option value="${k.sembol}">${k.ad}</option>`).join('');
 
   // Fiyatlar her 30 sn tazelenir (hafif uç noktalar)
   setInterval(canliCek, 30_000);
