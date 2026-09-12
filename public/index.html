@@ -524,11 +524,23 @@ table.ekran tbody tr:last-child td { border-bottom: 0; }
 .madalya.m3 { background: linear-gradient(140deg, #dda06a, #b0713c); color: #2a1600; border-color: transparent; }
 
 .skor-kutu { flex: 0 0 auto; text-align: right; min-width: 74px; }
-.skor-sayi { font-size: 20px; font-weight: 740; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.skor-cubuk { height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; margin-top: 5px; }
-.skor-dolgu { height: 100%; border-radius: 3px; width: 0;
+.skor-sayi { font-size: 20px; font-weight: 740; letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+             transition: color var(--gecis); }
+/* display:block şart — span varsayılan olarak satır içidir ve satır içi
+   elemanlarda width/height uygulanmaz; dolgu bu yüzden hiç çizilmiyordu. */
+.skor-cubuk { display: block; height: 6px; border-radius: 3px; background: var(--surface-3);
+              overflow: hidden; margin-top: 5px; }
+.skor-dolgu { display: block; height: 100%; border-radius: 3px; width: 0;
               background: linear-gradient(90deg, var(--accent), var(--accent-2));
               transition: width .7s cubic-bezier(.22,.8,.3,1); }
+
+/* Puana göre renk. Renk TEK TAŞIYICI DEĞİL: sayının kendisi hemen yanında,
+   bileşen değerleri de kartta yazılı — renk yalnızca hızlı tarama içindir. */
+.s-yuksek .skor-dolgu { background: linear-gradient(90deg, var(--up), #4ade80); }
+.s-yuksek .skor-sayi  { color: var(--up); }
+.s-orta   .skor-dolgu { background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.s-dusuk  .skor-dolgu { background: linear-gradient(90deg, var(--flat), color-mix(in srgb, var(--flat) 55%, transparent)); }
+.s-dusuk  .skor-sayi  { color: var(--ink-muted); }
 
 .bilesenler { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
 .bilesen {
@@ -547,8 +559,17 @@ table.ekran tbody tr:last-child td { border-bottom: 0; }
                font-size: 12px; padding: 4px 0; }
 .neden-satir .ad { color: var(--ink-2); }
 .neden-satir .ham { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
-.mini-cubuk { height: 5px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
-.mini-dolgu { height: 100%; background: var(--accent); border-radius: 3px; }
+/* Aynı satır içi tuzağı burada da vardı — ikisi de blok olmalı. */
+.mini-cubuk { display: block; height: 6px; border-radius: 3px; background: var(--surface-3); overflow: hidden; }
+.mini-dolgu { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 3px;
+              transition: width .6s cubic-bezier(.22,.8,.3,1); }
+/* Bileşen çubuğu: yüzdelik sıraya göre renk — çip renkleriyle aynı ölçek */
+.mini-dolgu.iyi  { background: linear-gradient(90deg, var(--up), #4ade80); }
+.mini-dolgu.orta { background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+.mini-dolgu.kotu { background: var(--down); }
+.neden-satir .yuzde { font-size: 10.5px; color: var(--ink-muted); font-variant-numeric: tabular-nums;
+                      text-align: right; }
+.neden-satir { grid-template-columns: 1fr 58px 84px 34px; }
 
 /* ===================== FONLAR ===================== */
 .fon-kart {
@@ -1787,8 +1808,10 @@ function radarCiz() {
     const x = s.varlik;
     const madalya = i < 3 ? `m${i + 1}` : '';
     const gorunen = s.bilesenler.filter((b) => b.p !== null).slice(0, 4);
+    // Puan bandı yalnızca renk için — sayı ve ham değerler zaten kartta yazılı
+    const bant = s.skor >= 70 ? 's-yuksek' : s.skor >= 40 ? 's-orta' : 's-dusuk';
     return `
-    <div class="sira-kart" data-sira="${i}" style="animation-delay:${Math.min(i * 35, 400)}ms">
+    <div class="sira-kart ${bant}" data-sira="${i}" style="animation-delay:${Math.min(i * 35, 400)}ms">
       <div class="madalya ${madalya}">${i + 1}</div>
       ${avatar(x.sembol, x.ad ?? x.kod)}
       <div style="flex:1;min-width:0">
@@ -1806,7 +1829,10 @@ function radarCiz() {
             <div class="neden-satir">
               <span class="ad">${b.ad}</span>
               <span class="ham">${b.metin ?? '—'}</span>
-              <span class="mini-cubuk"><span class="mini-dolgu" style="width:${b.p === null ? 0 : b.p.toFixed(0)}%"></span></span>
+              <span class="mini-cubuk"><span class="mini-dolgu ${
+                b.p === null ? '' : b.p >= 70 ? 'iyi' : b.p <= 30 ? 'kotu' : 'orta'
+              }" data-genislik="${b.p === null ? 0 : b.p.toFixed(0)}"></span></span>
+              <span class="yuzde">${b.p === null ? '—' : b.p.toFixed(0)}</span>
             </div>`).join('')}
           ${s.riskler.length ? `<div style="margin-top:9px;font-size:11.5px;color:var(--warn);line-height:1.7">
             ${s.riskler.map((r) => '⚠ ' + r).join('<br>')}</div>` : ''}
@@ -1822,12 +1848,22 @@ function radarCiz() {
     </div>`;
   }).join('');
 
-  // Puan çubukları bir kare sonra dolsun — geçiş animasyonu görünsün
+  // Çubuklar bir kare sonra dolsun — geçiş animasyonu görünsün
   requestAnimationFrame(() => {
-    liste.querySelectorAll('.skor-dolgu').forEach((d) => { d.style.width = d.dataset.genislik + '%'; });
+    liste.querySelectorAll('.skor-dolgu, .mini-dolgu').forEach((d) => {
+      d.style.width = (d.dataset.genislik ?? 0) + '%';
+    });
   });
   liste.querySelectorAll('.sira-kart').forEach((k) => {
-    k.onclick = () => k.classList.toggle('acik');
+    k.onclick = () => {
+      k.classList.toggle('acik');
+      // "Neden?" ilk açıldığında bileşen çubukları da animasyonla dolsun
+      if (k.classList.contains('acik')) {
+        requestAnimationFrame(() => {
+          k.querySelectorAll('.mini-dolgu').forEach((d) => { d.style.width = (d.dataset.genislik ?? 0) + '%'; });
+        });
+      }
+    };
   });
 }
 
