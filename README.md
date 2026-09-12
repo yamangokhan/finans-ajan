@@ -20,19 +20,6 @@ sebebini açıklayan bir bilgi notu üretir ve Telegram'dan gönderir.
 
 ---
 
-## Kurulum
-
-```bash
-cd C:\Users\Habibe\Desktop\FinansAjan
-npm install
-```
-
-`.env` dosyası hazır; Telegram tarafı dolu. Eksik olan tek şey:
-
-```
-ANTHROPIC_API_KEY=      # console.anthropic.com -> API Keys
-```
-
 Bu anahtar olmadan da bot çalışır — hareketi ve ilgili haber başlıklarını gönderir,
 sadece yorumlanmış analiz notunu üretemez.
 
