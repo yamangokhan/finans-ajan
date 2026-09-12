@@ -1,6 +1,6 @@
 // Service worker: kabuk önbelleğe alınır (çevrimdışı açılış), veri her zaman ağdan.
 // Sürümü değiştirince eski önbellek temizlenir.
-const SURUM = 'finans-ajan-v1';
+const SURUM = 'finans-ajan-v2';
 const KABUK = [
   '/',
   '/manifest.json',
@@ -48,7 +48,26 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Kabuk: önce önbellek, arka planda tazele
+  // SAYFANIN KENDİSİ (index.html): önce ağ, olmazsa önbellek.
+  // Eskiden burada da "önce önbellek" vardı: panel güncellendiğinde kurulu
+  // uygulama eski sürümü açıyor, yenilik ancak ikinci açılışta görünüyordu.
+  // Çevrimdışı açılış korunur — ağ yoksa önbellekteki kabuk devreye girer.
+  if (e.request.mode === 'navigate' || url.pathname === '/') {
+    e.respondWith(
+      fetch(e.request)
+        .then((yanit) => {
+          if (yanit.ok) {
+            const kopya = yanit.clone();
+            caches.open(SURUM).then((c) => c.put('/', kopya));
+          }
+          return yanit;
+        })
+        .catch(() => caches.match('/').then((c) => c ?? Response.error())),
+    );
+    return;
+  }
+
+  // Diğer kabuk dosyaları (ikon, manifest): önce önbellek, arka planda tazele
   e.respondWith(
     caches.match(e.request).then((onbellek) => {
       const ag = fetch(e.request)

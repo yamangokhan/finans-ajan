@@ -23,9 +23,23 @@ export const SERILER = {
   politikaFaizi: { kod: 'TP.BISPOLFAIZ.TUR',  ad: 'TCMB politika faizi', birim: '%',  basamak: 2, sik: 'aylik' },
   fedFaizi:      { kod: 'TP.BISPOLFAIZ.USA',  ad: 'Fed politika faizi',  birim: '%',  basamak: 2, sik: 'aylik' },
   tufe:          { kod: 'TP.TUKFIY2025.GENEL', ad: 'TÜFE (2025=100)',   birim: '',    basamak: 2, sik: 'aylik' },
+  konutEndeksi:  { kod: 'TP.KFE.TR',          ad: 'Konut fiyat endeksi', birim: '',   basamak: 1, sik: 'aylik' },
+  cariDenge:     { kod: 'TP.ODANA6.Q01',      ad: 'Cari işlemler dengesi', birim: 'M$', basamak: 0, sik: 'aylik' },
   rezervAltin:   { kod: 'TP.AB.C1',           ad: 'Rezerv — altın',     birim: 'M$',  basamak: 0, sik: 'haftalik' },
   rezervDoviz:   { kod: 'TP.AB.C2',           ad: 'Rezerv — döviz',     birim: 'M$',  basamak: 0, sik: 'haftalik' },
   rezervToplam:  { kod: 'TP.AB.TOPLAM',       ad: 'Rezerv — toplam',    birim: 'M$',  basamak: 0, sik: 'haftalik' },
+  mevduatFaizi:  { kod: 'TP.TRY.MT02',        ad: 'TL mevduat faizi (3 ay)', birim: '%', basamak: 2, sik: 'haftalik' },
+  // EVDS M2'yi BİN TL olarak yayımlıyor — 28.658.786.921 gibi okunamaz bir sayı.
+  // olcek ile trilyon TL'ye çevriliyor.
+  m2:            { kod: 'TP.HPBITABLO1.11',   ad: 'M2 para arzı',       birim: 'trilyon ₺', basamak: 2, sik: 'haftalik', olcek: 1e-9 },
+};
+
+// Frekansı karışık serileri TEK istekte sormuyoruz: EVDS satırları tarihe göre
+// hizalıyor, aylık seri haftalık tarihlerde boş dönüp gereksiz gürültü üretiyor.
+const PENCERE = {
+  gunluk:   { gun: 45,  alanlar: ['usd', 'eur'] },
+  aylik:    { gun: 900, alanlar: ['politikaFaizi', 'fedFaizi', 'tufe', 'konutEndeksi', 'cariDenge'] },
+  haftalik: { gun: 400, alanlar: ['rezervAltin', 'rezervDoviz', 'rezervToplam', 'mevduatFaizi', 'm2'] },
 };
 
 const gg = (d) =>
@@ -65,8 +79,10 @@ export async function evdsSeri(kodlar, { gun = 60 } = {}) {
 }
 
 /** Son değer + bir önceki gözleme göre değişim. */
-function ozet(noktalar, tanim) {
-  if (!noktalar?.length) return null;
+function ozet(ham, tanim) {
+  if (!ham?.length) return null;
+  const k = tanim.olcek ?? 1;
+  const noktalar = k === 1 ? ham : ham.map((n) => ({ ...n, deger: n.deger * k }));
   const son = noktalar.at(-1);
   const onceki = noktalar.at(-2);
   return {
@@ -99,17 +115,12 @@ export async function tcmbGostergeler({ zorla = false } = {}) {
   if (!zorla && onbellek && Date.now() - onbellek.zaman < TAZELIK_MS) return onbellek.veri;
 
   try {
-    // İki pencere: günlük kur için kısa, aylık/haftalık seriler için uzun.
-    const [gunluk, uzun] = await Promise.all([
-      evdsSeri([SERILER.usd.kod, SERILER.eur.kod], { gun: 45 }),
-      evdsSeri(
-        [SERILER.politikaFaizi.kod, SERILER.fedFaizi.kod, SERILER.tufe.kod,
-         SERILER.rezervAltin.kod, SERILER.rezervDoviz.kod, SERILER.rezervToplam.kod],
-        { gun: 500 },
-      ),
-    ]);
+    // Frekans başına bir istek — karışık frekansta EVDS hizalaması bozuk görünüyor.
+    const parcalar = await Promise.all(
+      Object.values(PENCERE).map((p) => evdsSeri(p.alanlar.map((a) => SERILER[a].kod), { gun: p.gun })),
+    );
+    const hepsi = Object.assign({}, ...parcalar);
 
-    const hepsi = { ...gunluk, ...uzun };
     const g = {};
     for (const [ad, tanim] of Object.entries(SERILER)) g[ad] = ozet(hepsi[tanim.kod], tanim);
 
@@ -125,11 +136,23 @@ export async function tcmbGostergeler({ zorla = false } = {}) {
         deger: (son.deger / yilOnce.deger - 1) * 100,
         tarih: son.tarih,
         degisim: null,
-        gecmis: [],
+        gecmis: tufeNokta.slice(-13).map((n, i, d) => (i ? (n.deger / d[i - 1].deger - 1) * 100 : 0)).slice(1),
       };
     }
 
-    const veri = { gostergeler: g, kaynak: 'TCMB EVDS', zaman: Date.now() };
+    const veri = {
+      gostergeler: g,
+      // Ham TÜFE serisi istemciye de gider: portföyde "şu tarihte aldım" denince
+      // reel getiri o tarihten bugüne enflasyonla hesaplanabilsin.
+      tufeSerisi: tufeNokta.slice(-120),
+      enflasyon: {
+        yillik: g.tufeYillik?.deger ?? null,
+        aylik: tufeNokta.length >= 2 ? (tufeNokta.at(-1).deger / tufeNokta.at(-2).deger - 1) * 100 : null,
+        tarih: tufeNokta.at(-1)?.tarih ?? null,
+      },
+      kaynak: 'TCMB EVDS',
+      zaman: Date.now(),
+    };
     onbellek = { zaman: Date.now(), veri };
     return veri;
   } catch (e) {

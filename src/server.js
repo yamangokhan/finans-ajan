@@ -225,7 +225,13 @@ const sunucu = http.createServer(async (req, res) => {
       return res.end('Bulunamadı');
     }
     const icerik = fs.readFileSync(tamYol);
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(tamYol)] ?? 'application/octet-stream' });
+    // sw.js ve sayfa tarayıcıda önbelleğe takılmasın: panel güncellendiğinde
+    // kurulu PWA eski sürümü açmaya devam ediyordu.
+    const bayat = dosya === 'sw.js' || dosya === 'index.html';
+    res.writeHead(200, {
+      'Content-Type': MIME[path.extname(tamYol)] ?? 'application/octet-stream',
+      'Cache-Control': bayat ? 'no-cache' : 'public, max-age=3600',
+    });
     res.end(icerik);
   } catch (e) {
     hata('Sunucu hatası:', e.message);

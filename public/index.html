@@ -280,6 +280,43 @@ table.ekran tbody tr { cursor: pointer; }
 <h2 id="evds-baslik" style="display:none">TCMB resmî göstergeler <span style="text-transform:none;letter-spacing:0;font-weight:400">(EVDS — abonelik verisi)</span></h2>
 <div class="tiles" id="evds-kutu" style="display:none"></div>
 
+<h2 id="reel-baslik" style="display:none">Reel getiri <span style="text-transform:none;letter-spacing:0;font-weight:400">(enflasyondan arındırılmış)</span></h2>
+<div class="tablo-kutu" id="reel-kutu" style="display:none">
+  <table class="ekran">
+    <thead><tr><th>Varlık</th><th>1 yıl nominal</th><th>Enflasyon</th><th>Reel getiri</th><th>Sonuç</th></tr></thead>
+    <tbody id="reel-govde"></tbody>
+  </table>
+</div>
+
+<h2>Portföyüm</h2>
+<div class="uyari" style="font-size:12px">
+  Kayıtlar yalnızca <b>bu tarayıcıda</b> saklanır (localStorage) — sunucuya gönderilmez, kimse göremez.
+</div>
+<div id="portfoy-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:12px 0">
+  <label style="font-size:12px">Varlık<br><select id="p-varlik" style="min-width:170px"></select></label>
+  <label style="font-size:12px">Miktar<br><input id="p-miktar" type="number" step="any" min="0" style="width:110px"></label>
+  <label style="font-size:12px">Alış fiyatı (birim)<br><input id="p-maliyet" type="number" step="any" min="0" style="width:130px"></label>
+  <label style="font-size:12px">Alış tarihi<br><input id="p-tarih" type="date" style="width:150px"></label>
+  <button id="p-ekle">Ekle</button>
+</div>
+<div class="tablo-kutu">
+  <table class="ekran">
+    <thead><tr><th>Varlık</th><th>Miktar</th><th>Maliyet</th><th>Şimdiki değer</th><th>K/Z</th><th>Reel K/Z</th><th></th></tr></thead>
+    <tbody id="portfoy-govde"><tr><td class="bos" colspan="7">Henüz kayıt yok.</td></tr></tbody>
+  </table>
+</div>
+<div id="portfoy-ozet" class="dipnot" style="margin-top:8px"></div>
+
+<h2>Fiyat alarmları</h2>
+<div id="alarm-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:12px 0">
+  <label style="font-size:12px">Varlık<br><select id="a-varlik" style="min-width:170px"></select></label>
+  <label style="font-size:12px">Yön<br><select id="a-yon"><option value="ust">şunu geçerse</option><option value="alt">şunun altına inerse</option></select></label>
+  <label style="font-size:12px">Fiyat<br><input id="a-fiyat" type="number" step="any" min="0" style="width:130px"></label>
+  <button id="a-ekle">Alarm kur</button>
+  <span id="a-izin" style="font-size:12px;opacity:.7"></span>
+</div>
+<div class="liste" id="alarm-kutu"><div class="bos">Alarm yok.</div></div>
+
 <h2>BIST tarayıcı</h2>
 <div class="sekmeler" id="sekmeler"></div>
 <div class="tablo-kutu">
@@ -602,12 +639,18 @@ function haremCiz() {
 // ---------- TCMB EVDS ----------
 // Resmî istatistikler Yahoo'dan bağımsız bir kaynaktır: piyasa fiyatı yerine
 // TCMB/TÜİK'in yayımladığı veriyi gösterir. Anahtar yoksa bölüm hiç görünmez.
-const EVDS_SIRA = ['usd', 'eur', 'politikaFaizi', 'tufeYillik', 'fedFaizi', 'rezervToplam', 'rezervAltin', 'rezervDoviz'];
+const EVDS_SIRA = ['usd', 'eur', 'politikaFaizi', 'tufeYillik', 'mevduatFaizi', 'fedFaizi',
+                   'rezervToplam', 'rezervAltin', 'rezervDoviz', 'konutEndeksi', 'cariDenge', 'm2'];
 
 function evdsCiz(veri) {
   const baslik = document.getElementById('evds-baslik');
   const kutu = document.getElementById('evds-kutu');
   const g = veri?.gostergeler;
+
+  // Enflasyon verisi reel getiri ve portföyün reel K/Z sütununu besler.
+  if (veri?.enflasyon) ENFLASYON = veri.enflasyon;
+  if (veri?.tufeSerisi?.length) TUFE_SERISI = veri.tufeSerisi;
+  if (veri?.enflasyon || veri?.tufeSerisi) araclariCiz();
   if (!g) { baslik.style.display = 'none'; kutu.style.display = 'none'; return; }
 
   const kartlar = EVDS_SIRA.map((ad) => g[ad]).filter(Boolean);
@@ -703,7 +746,7 @@ async function canliCek() {
     const c = await (await fetch('/api/canli')).json();
     if (c?.fiyatlar && Object.keys(c.fiyatlar).length) {
       canliUygula(c.fiyatlar);
-      makroCiz(); tabloCiz();
+      makroCiz(); tabloCiz(); araclariCiz();
       const yas = Math.round((Date.now() - c.zaman) / 1000);
       document.getElementById('guncelleme').textContent =
         `Fiyatlar ${yas < 60 ? yas + ' sn' : Math.round(yas / 60) + ' dk'} önce`;
@@ -738,6 +781,213 @@ async function netlifyTara(semboller, hedef) {
   durumYaz(null);
 }
 
+// ========== REEL GETİRİ / PORTFÖY / ALARM ==========
+// Üçü de tarayıcıda çalışır: portföy ve alarmlar localStorage'da durur, sunucuya
+// gitmez. Netlify'da yazılabilir depo yok — zaten finansal veriyi dışarı taşımanın
+// da anlamı yok.
+
+let ENFLASYON = null;     // { yillik, aylik, tarih }
+let TUFE_SERISI = [];     // [{ tarih: '2026-8', deger }] — aylık endeks
+
+const oku = (a, v) => { try { return JSON.parse(localStorage.getItem(a)) ?? v; } catch { return v; } };
+const yaz = (a, d) => { try { localStorage.setItem(a, JSON.stringify(d)); } catch { /* kota dolu */ } };
+
+/** Panelde fiyatı bilinen tüm varlıklar (makro + BIST). */
+function tumVarliklar() {
+  return [...(VERI?.makro ?? []), ...(VERI?.bist ?? [])]
+    .filter((x) => x && x.sembol)
+    .map((x) => ({ sembol: x.sembol, ad: x.ad ?? x.sembol, fiyat: x.fiyat, getiri: x.getiri }));
+}
+const varlikBul = (sembol) => tumVarliklar().find((x) => x.sembol === sembol) ?? null;
+
+/** 'YYYY-AA' ya da 'YYYY-AA-GG' -> TÜFE endeksi (o ay yoksa bir önceki ay). */
+function tufeEndeksi(tarih) {
+  if (!TUFE_SERISI.length || !tarih) return null;
+  const [yil, ay] = String(tarih).split('-').map(Number);
+  const hedef = yil * 12 + ay;
+  let aday = null;
+  for (const n of TUFE_SERISI) {
+    const [y, a] = n.tarih.split('-').map(Number);
+    if (y * 12 + a <= hedef) aday = n; else break;
+  }
+  return aday?.deger ?? null;
+}
+
+/** İki tarih arasındaki toplam enflasyon (%). */
+function enflasyonArasi(baslangicTarihi) {
+  const bas = tufeEndeksi(baslangicTarihi);
+  const son = TUFE_SERISI.at(-1)?.deger;
+  if (!bas || !son) return null;
+  return (son / bas - 1) * 100;
+}
+
+/** Nominal getiriyi enflasyona böler: (1+n)/(1+e)-1 — fark almak matematiksel olarak yanlış. */
+const reelGetiri = (nominal, enflasyon) =>
+  (!isFinite(nominal) || !isFinite(enflasyon)) ? null : ((1 + nominal / 100) / (1 + enflasyon / 100) - 1) * 100;
+
+// ---------- reel getiri tablosu ----------
+function reelCiz() {
+  const baslik = document.getElementById('reel-baslik');
+  const kutu = document.getElementById('reel-kutu');
+  const enf = ENFLASYON?.yillik;
+  const liste = (VERI?.makro ?? []).filter((x) => isFinite(x?.getiri?.yil));
+
+  if (!isFinite(enf) || !liste.length) { baslik.style.display = 'none'; kutu.style.display = 'none'; return; }
+  baslik.style.display = ''; kutu.style.display = '';
+
+  const satirlar = liste
+    .map((x) => ({ ad: x.ad, nominal: x.getiri.yil, reel: reelGetiri(x.getiri.yil, enf) }))
+    .sort((a, b) => b.reel - a.reel);
+
+  document.getElementById('reel-govde').innerHTML = satirlar.map((s) => `
+    <tr>
+      <td>${s.ad}</td>
+      <td>${delta(s.nominal)}</td>
+      <td><span class="delta flat">${nf(enf)}%</span></td>
+      <td>${delta(s.reel)}</td>
+      <td>${s.reel > 0 ? '<span class="rozet r-al">KORUDU</span>' : '<span class="rozet r-sat">ERİDİ</span>'}</td>
+    </tr>`).join('');
+}
+
+// ---------- portföy ----------
+const P_ANAHTAR = 'fa.portfoy';
+let PORTFOY = oku(P_ANAHTAR, []);
+
+function secenekDoldur(id) {
+  const sec = document.getElementById(id);
+  const onceki = sec.value;
+  const v = tumVarliklar();
+  if (!v.length) return;
+  sec.innerHTML = v.map((x) => `<option value="${x.sembol}">${x.ad}</option>`).join('');
+  if (onceki) sec.value = onceki;
+}
+
+function portfoyCiz() {
+  const govde = document.getElementById('portfoy-govde');
+  if (!PORTFOY.length) {
+    govde.innerHTML = '<tr><td class="bos" colspan="7">Henüz kayıt yok.</td></tr>';
+    document.getElementById('portfoy-ozet').textContent = '';
+    return;
+  }
+
+  let toplamMaliyet = 0, toplamDeger = 0;
+  govde.innerHTML = PORTFOY.map((p, i) => {
+    const v = varlikBul(p.sembol);
+    const fiyat = v?.fiyat;
+    const maliyet = p.miktar * p.maliyet;
+    const deger = isFinite(fiyat) ? p.miktar * fiyat : NaN;
+    const kz = isFinite(deger) ? ((deger / maliyet - 1) * 100) : NaN;
+    const enf = enflasyonArasi(p.tarih);
+    const reel = reelGetiri(kz, enf);
+    if (isFinite(maliyet)) toplamMaliyet += maliyet;
+    if (isFinite(deger)) toplamDeger += deger;
+
+    return `
+    <tr>
+      <td>${v?.ad ?? p.sembol}</td>
+      <td>${nf(p.miktar, 4)}</td>
+      <td>${nf(maliyet, 0)} ₺</td>
+      <td>${isFinite(deger) ? nf(deger, 0) + ' ₺' : '—'}</td>
+      <td>${delta(kz)}</td>
+      <td>${reel === null ? '<span class="delta flat">—</span>' : delta(reel)}</td>
+      <td><button data-sil="${i}" style="font-size:11px">sil</button></td>
+    </tr>`;
+  }).join('');
+
+  const kzToplam = toplamMaliyet ? (toplamDeger / toplamMaliyet - 1) * 100 : NaN;
+  document.getElementById('portfoy-ozet').innerHTML =
+    `Toplam maliyet <b>${nf(toplamMaliyet, 0)} ₺</b> · şimdiki değer <b>${nf(toplamDeger, 0)} ₺</b> · ` +
+    `K/Z ${delta(kzToplam)}${isFinite(ENFLASYON?.yillik) ? ` · <i>reel sütunu, alış tarihinden bugüne TÜFE ile hesaplanır</i>` : ''}`;
+
+  govde.querySelectorAll('[data-sil]').forEach((b) => {
+    b.onclick = () => { PORTFOY.splice(Number(b.dataset.sil), 1); yaz(P_ANAHTAR, PORTFOY); portfoyCiz(); };
+  });
+}
+
+document.getElementById('p-ekle').onclick = () => {
+  const sembol = document.getElementById('p-varlik').value;
+  const miktar = Number(document.getElementById('p-miktar').value);
+  const maliyet = Number(document.getElementById('p-maliyet').value);
+  const tarih = document.getElementById('p-tarih').value || new Date().toISOString().slice(0, 10);
+  if (!sembol || !(miktar > 0) || !(maliyet > 0)) { alert('Varlık, miktar ve alış fiyatı gerekli.'); return; }
+  PORTFOY.push({ sembol, miktar, maliyet, tarih });
+  yaz(P_ANAHTAR, PORTFOY);
+  document.getElementById('p-miktar').value = '';
+  document.getElementById('p-maliyet').value = '';
+  portfoyCiz();
+};
+
+// ---------- fiyat alarmları ----------
+const A_ANAHTAR = 'fa.alarmlar';
+let ALARMLAR = oku(A_ANAHTAR, []);
+
+function izinYaz() {
+  const e = document.getElementById('a-izin');
+  if (!('Notification' in window)) { e.textContent = 'Bu tarayıcı bildirim desteklemiyor — alarmlar sayfada gösterilir.'; return; }
+  e.textContent = Notification.permission === 'granted'
+    ? 'Bildirim izni var (panel açıkken çalışır).'
+    : 'Bildirim izni yok — alarm sayfada da gösterilir.';
+}
+
+function alarmCiz() {
+  const kutu = document.getElementById('alarm-kutu');
+  if (!ALARMLAR.length) { kutu.innerHTML = '<div class="bos">Alarm yok.</div>'; return; }
+  kutu.innerHTML = ALARMLAR.map((a, i) => {
+    const v = varlikBul(a.sembol);
+    return `<div class="satir" style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+      <span>${v?.ad ?? a.sembol} ${a.yon === 'ust' ? '≥' : '≤'} <b>${nf(a.fiyat)}</b>
+        ${a.tetiklendi ? '<span class="rozet r-al">TETİKLENDİ</span>' : ''}
+        <span style="opacity:.6;font-size:11px">· şu an ${isFinite(v?.fiyat) ? nf(v.fiyat) : '—'}</span></span>
+      <button data-alarm-sil="${i}" style="font-size:11px">sil</button>
+    </div>`;
+  }).join('');
+  kutu.querySelectorAll('[data-alarm-sil]').forEach((b) => {
+    b.onclick = () => { ALARMLAR.splice(Number(b.dataset.alarmSil), 1); yaz(A_ANAHTAR, ALARMLAR); alarmCiz(); };
+  });
+}
+
+/** Her fiyat tazelemesinde çağrılır. Tetiklenen alarm bir kez haber verir, tekrar etmez. */
+function alarmKontrol() {
+  let degisti = false;
+  for (const a of ALARMLAR) {
+    const v = varlikBul(a.sembol);
+    if (!v || !isFinite(v.fiyat)) continue;
+    const kosul = a.yon === 'ust' ? v.fiyat >= a.fiyat : v.fiyat <= a.fiyat;
+    if (kosul && !a.tetiklendi) {
+      a.tetiklendi = true; degisti = true;
+      const metin = `${v.ad}: ${nf(v.fiyat)} (${a.yon === 'ust' ? 'üst' : 'alt'} sınır ${nf(a.fiyat)})`;
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Finans Ajanı — fiyat alarmı', { body: metin, icon: '/icons/icon-192.png' });
+      }
+      document.getElementById('guncelleme').textContent = `🔔 ${metin}`;
+    }
+    // Fiyat sınırın diğer tarafına geçerse alarm yeniden kurulur.
+    if (!kosul && a.tetiklendi) { a.tetiklendi = false; degisti = true; }
+  }
+  if (degisti) { yaz(A_ANAHTAR, ALARMLAR); alarmCiz(); }
+}
+
+document.getElementById('a-ekle').onclick = async () => {
+  const sembol = document.getElementById('a-varlik').value;
+  const fiyat = Number(document.getElementById('a-fiyat').value);
+  const yon = document.getElementById('a-yon').value;
+  if (!sembol || !(fiyat > 0)) { alert('Varlık ve fiyat gerekli.'); return; }
+  if ('Notification' in window && Notification.permission === 'default') {
+    await Notification.requestPermission().catch(() => {});
+    izinYaz();
+  }
+  ALARMLAR.push({ sembol, fiyat, yon, tetiklendi: false });
+  yaz(A_ANAHTAR, ALARMLAR);
+  document.getElementById('a-fiyat').value = '';
+  alarmCiz();
+};
+
+/** Fiyat/veri her tazelendiğinde bu üç bölüm birlikte güncellenir. */
+function araclariCiz() {
+  secenekDoldur('p-varlik'); secenekDoldur('a-varlik');
+  reelCiz(); portfoyCiz(); alarmCiz(); alarmKontrol();
+}
+
 async function ilkYukleme() {
   VERI = { makro: [], bist: [], haberler: [], olaylar: [] };
 
@@ -765,11 +1015,15 @@ async function ilkYukleme() {
                   'ENKAI','TTKOM','MGROS','ULKER','DOAS','OYAKC','ASTOR','EKGYO','HEKTS','GUBRF','ALARK',
                   'SOKM','CIMSA','AEFES','TTRAK','VESTL'].map((k) => k + '.IS');
     await netlifyTara(MAKRO, 'makro');
+    araclariCiz();                       // varlık listesi doldu — portföy/alarm seçimleri hazır
     netlifyTara(BIST, 'bist');           // arka planda dolsun, kullanıcı beklemesin
     fetch('/api/haberler').then((r) => r.json()).then((h) => {
       VERI.haberler = h.haberler ?? []; VERI.olaylar = h.olaylar ?? []; yanCiz();
     }).catch(() => {});
   }
+
+  izinYaz();
+  araclariCiz();
 
   // Fiyatlar her 30 sn tazelenir (hafif uç noktalar)
   setInterval(canliCek, 30_000);
@@ -783,7 +1037,9 @@ async function yerelCek() {
     const v = await (await fetch('/api/veri')).json();
     VERI = { ...VERI, ...v };
     durumYaz(v.tarama?.aktif ? (v.tarama.n ? `TARANIYOR ${v.tarama.i}/${v.tarama.n}` : 'TARANIYOR') : null);
-    makroCiz(); tabloCiz(); yanCiz();
+    // Yerel sunucu EVDS'yi /api/veri ile birlikte gönderiyor — ayrı istek gerekmez.
+    if (v.evds) evdsCiz(v.evds);
+    makroCiz(); tabloCiz(); yanCiz(); araclariCiz();
   } catch { /* sunucu meşgul */ }
 }
 
