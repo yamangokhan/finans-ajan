@@ -747,6 +747,27 @@ table.ekran tbody tr:last-child td { border-bottom: 0; }
       varlık hangi ölçütte nerede duruyor" sorusunun mekanik cevabıdır. Kararı sen verirsin.</div>
     </div>
 
+    <div class="baslik-satir"><h2>Günün notu <span class="ek">· Claude yorumu</span></h2>
+      <button class="ikon-btn" id="not-yenile" title="Notu yenile" style="margin-left:auto">
+        <svg><use href="#i-yenile"/></svg></button>
+    </div>
+    <div id="not-kutu"></div>
+
+    <div class="baslik-satir"><h2>Nakit penceresi <span class="ek">· param ne kadar süre boşta?</span></h2></div>
+    <div class="form-kart">
+      <div class="alanlar">
+        <div class="alan"><label for="n-tutar">Tutar (₺)</label><input id="n-tutar" type="number" step="any" min="0" placeholder="örn. 50000"></div>
+        <div class="alan"><label for="n-gun">Kaç gün sonra lazım?</label><input id="n-gun" type="number" step="1" min="1" max="120" placeholder="örn. 16"></div>
+        <button class="btn-ana" id="n-hesapla"><svg><use href="#i-saat"/></svg>Hesapla</button>
+      </div>
+      <div style="margin-top:10px;font-size:11.5px;color:var(--ink-muted);line-height:1.6">
+        Aşağıdaki sayılar <b>geçmişte</b> aynı uzunluktaki pencerelerde ne olduğudur — gelecek tahmini değildir.
+        Amaç, o süre için hangi varlığın ne kadar oynadığını ve en kötü durumun ne olduğunu görmen.
+      </div>
+      <div id="n-sonuc" style="margin-top:12px"></div>
+    </div>
+
+    <div class="baslik-satir"><h2>Vade sıralaması</h2></div>
     <div class="vade-secim" id="vade-secim"></div>
     <div class="cipler" id="radar-evren"></div>
     <div id="radar-liste"></div>
@@ -1007,8 +1028,9 @@ function gorunumAc(ad, kaydet = true) {
   if (kaydet) { try { localStorage.setItem(GORUNUM_ANAHTAR, ad); } catch { /* yoksay */ } }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 
-  // Ağır bölümler yalnızca açıldığında hesaplanır/yüklenir
-  if (ad === 'radar') radarCiz();
+  // Ağır bölümler yalnızca açıldığında hesaplanır/yüklenir.
+  // Günün notu ÜCRETLİ bir model çağrısı — sekmeye girilmeden hiç istenmez.
+  if (ad === 'radar') { radarCiz(); notCek(); }
   if (ad === 'fonlar') fonCek();
 }
 /** Aktif sekmenin altındaki renkli zemini kaydır. */
@@ -1295,6 +1317,7 @@ function evdsCiz(veri) {
   const g = veri?.gostergeler;
 
   // Enflasyon verisi reel getiri ve portföyün reel K/Z sütununu besler.
+  if (veri?.gostergeler) SON_EVDS = veri;   // nakit penceresi mevduat faizini buradan okur
   if (veri?.enflasyon) ENFLASYON = veri.enflasyon;
   if (veri?.tufeSerisi?.length) TUFE_SERISI = veri.tufeSerisi;
   if (veri?.enflasyon || veri?.tufeSerisi) araclariCiz();
@@ -1807,6 +1830,213 @@ function radarCiz() {
     k.onclick = () => k.classList.toggle('acik');
   });
 }
+
+// ========================= NAKİT PENCERESİ =========================
+// Soru: "param N gün boşta, ne olur?" Cevabı tahminle değil, GEÇMİŞ dağılımla
+// veriyoruz: son 90 kapanışta aynı uzunluktaki tüm pencerelerin getirileri.
+// Böylece en kötü durum, ortanca ve pozitif çıkma oranı birlikte görünüyor.
+
+/** Takvim günü -> yaklaşık işlem günü (hafta sonları kapalı). */
+const islemGunu = (takvimGun) => Math.max(1, Math.round(takvimGun * 5 / 7));
+
+function pencereAnalizi(seri, takvimGun) {
+  const n = islemGunu(takvimGun);
+  const temiz = (seri ?? []).filter((v) => isFinite(v));
+  // En az 12 örnek pencere istiyoruz; azı dağılım hakkında bir şey söylemez
+  if (temiz.length < n + 12) return null;
+
+  const getiriler = [];
+  for (let i = n; i < temiz.length; i++) getiriler.push((temiz[i] / temiz[i - n] - 1) * 100);
+  const sirali = [...getiriler].sort((a, b) => a - b);
+  const ortanca = sirali[Math.floor(sirali.length / 2)];
+
+  return {
+    adet: getiriler.length,
+    enKotu: sirali[0],
+    ortanca,
+    enIyi: sirali[sirali.length - 1],
+    pozitifOran: (getiriler.filter((v) => v > 0).length / getiriler.length) * 100,
+  };
+}
+
+function nakitHesapla() {
+  const tutar = Number(document.getElementById('n-tutar').value);
+  const gun = Number(document.getElementById('n-gun').value);
+  const kutu = document.getElementById('n-sonuc');
+
+  if (!(tutar > 0) || !(gun >= 1)) { kabarcikGoster('Tutar ve gün sayısı gerekli.'); return; }
+  if (gun > 120) { kabarcikGoster('Bu araç en fazla 120 günlük pencereyi ölçer.'); return; }
+
+  const tl = (n, b = 0) => nf(n, b) + ' ₺';
+
+  // --- Referans satırları: mevduat tarafı ve enflasyon ---
+  const g = SON_EVDS?.gostergeler ?? {};
+  const faiz = g.mevduatFaizi?.deger;
+  const aylikEnf = ENFLASYON?.aylik;
+
+  const mevduatKazanc = isFinite(faiz) ? tutar * (faiz / 100) * (gun / 365) : null;
+  const enfKayip = isFinite(aylikEnf) ? tutar * (Math.pow(1 + aylikEnf / 100, gun / 30) - 1) : null;
+
+  const referanslar = `
+    <div class="liste" style="margin-bottom:10px">
+      <div class="satir" style="display:flex;align-items:center;gap:12px">
+        <span class="avatar" style="--c:#2dd4bf">${ikon('i-banka', 20)}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:620">TL mevduat / likit taraf</div>
+          <div class="kaynak">${isFinite(faiz) ? `yıllık %${nf(faiz)} (TCMB, 3 ay vadeli ortalama) · ${gun} güne oranlanmış` : 'EVDS faiz verisi yok'}</div>
+        </div>
+        <div style="text-align:right">
+          ${mevduatKazanc === null ? '<span class="cip">—</span>'
+            : `<div class="fiyat" style="color:var(--up)">+${tl(mevduatKazanc)}</div>
+               <div class="kaynak">stopaj öncesi</div>`}
+        </div>
+      </div>
+      <div class="satir" style="display:flex;align-items:center;gap:12px">
+        <span class="avatar" style="--c:#fb923c">${ikon('i-nabiz', 20)}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:620">Hiçbir şey yapmazsan</div>
+          <div class="kaynak">${isFinite(aylikEnf) ? `aylık TÜFE %${nf(aylikEnf)} · ${gun} günde alım gücü kaybı` : 'TÜFE verisi yok'}</div>
+        </div>
+        <div style="text-align:right">
+          ${enfKayip === null ? '<span class="cip">—</span>'
+            : `<div class="fiyat" style="color:var(--down)">−${tl(enfKayip)}</div>
+               <div class="kaynak">nominal değil, reel</div>`}
+        </div>
+      </div>
+    </div>`;
+
+  // --- Varlıkların geçmiş pencere dağılımı ---
+  const satirlar = (VERI?.makro ?? [])
+    .map((x) => ({ x, a: pencereAnalizi(x.seri, gun) }))
+    .filter((s) => s.a)
+    .sort((a, b) => b.a.ortanca - a.a.ortanca)
+    .map(({ x, a }) => `
+      <div class="satir" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        ${avatar(x.sembol, x.ad)}
+        <div style="flex:1;min-width:150px">
+          <div style="font-weight:620">${x.ad}</div>
+          <div class="kaynak">${a.adet} geçmiş pencere · ${a.pozitifOran.toFixed(0)}%'i artıda kapandı</div>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;text-align:right">
+          <div><div class="kaynak">en kötü</div><b style="color:var(--down)">${nf(a.enKotu)}%</b>
+            <div class="kaynak">${tl(tutar * a.enKotu / 100)}</div></div>
+          <div><div class="kaynak">ortanca</div><b>${a.ortanca > 0 ? '+' : ''}${nf(a.ortanca)}%</b>
+            <div class="kaynak">${tl(tutar * a.ortanca / 100)}</div></div>
+          <div><div class="kaynak">en iyi</div><b style="color:var(--up)">+${nf(a.enIyi)}%</b>
+            <div class="kaynak">${tl(tutar * a.enIyi / 100)}</div></div>
+        </div>
+      </div>`).join('');
+
+  kutu.innerHTML = referanslar + (satirlar
+    ? `<div class="liste">${satirlar}</div>
+       <div style="margin-top:10px;font-size:11.5px;color:var(--ink-muted);line-height:1.6">
+         ${gun} takvim günü ≈ <b>${islemGunu(gun)} işlem günü</b>. Sayılar son 90 işlem gününün
+         tüm ${islemGunu(gun)} günlük pencerelerinden çıkarıldı; bu dönem dışındaki bir olayı içermez.
+         "En kötü" sütunu, o pencerede en fazla ne kaybedildiğini gösterir — asıl bakılması gereken sütun budur,
+         çünkü paran ${gun} gün sonra <i>lazım</i>.
+       </div>`
+    : '<div class="bos">Bu pencere uzunluğu için yeterli geçmiş veri yok.</div>');
+}
+
+document.getElementById('n-hesapla').onclick = nakitHesapla;
+
+// ========================= GÜNÜN NOTU =========================
+let SON_EVDS = null;   // brifing ve nakit penceresi için son EVDS yanıtı
+let NOT_YUKLENDI = false;
+
+function notCiz(veri) {
+  const kutu = document.getElementById('not-kutu');
+  const n = veri?.not;
+  if (!n) {
+    kutu.innerHTML = `<div class="bilgi">${ikon('i-bilgi', 17)}<div>${
+      veri?.sebep === 'ANTHROPIC_API_KEY tanımlı değil'
+        ? 'Günün notu için <b>ANTHROPIC_API_KEY</b> gerekiyor (.env dosyasına ekle). Paneldeki diğer her şey anahtarsız çalışır.'
+        : (veri?.sebep ?? 'Not henüz üretilmedi.')}</div></div>`;
+    return;
+  }
+
+  const yas = veri.zaman ? Math.round((Date.now() - veri.zaman) / 60000) : null;
+  kutu.innerHTML = `
+    <div class="radar-ust" style="background:linear-gradient(150deg, color-mix(in srgb, var(--accent-2) 20%, var(--surface)), var(--surface) 62%)">
+      <h3 style="font-size:17px">${n.manset}</h3>
+      <p style="font-size:13.5px;color:var(--ink)">${n.ozet}</p>
+      <div style="margin-top:8px;font-size:11px;color:var(--ink-muted)">
+        ${yas === null ? '' : `${yas < 60 ? yas + ' dk' : Math.round(yas / 60) + ' saat'} önce üretildi · `}${n.model ?? ''}
+      </div>
+    </div>
+
+    <div class="liste" style="margin-bottom:10px">
+      ${(n.surukleyiciler ?? []).map((s) => `
+        <div class="satir">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <b>${s.baslik}</b>
+            <span class="rozet ${s.guven === 'yüksek' ? 'r-al' : s.guven === 'düşük' ? 'r-sat' : 'r-notr'}">GÜVEN: ${String(s.guven).toUpperCase()}</span>
+          </div>
+          <div style="margin-top:4px;font-size:13.5px;color:var(--ink-2)">${s.aciklama}</div>
+          <div class="kaynak">etkilenen: ${s.etkilenen}</div>
+        </div>`).join('')}
+    </div>
+
+    <div class="varliklar" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+      <div class="fon-kart">
+        <div class="fon-ust"><span class="avatar" style="--c:var(--accent)">${ikon('i-grafik', 20)}</span>
+          <div class="fon-ad">Çapraz okuma</div></div>
+        <div style="font-size:13.5px;color:var(--ink-2);line-height:1.65">${n.carprazOkuma}</div>
+      </div>
+      <div class="fon-kart">
+        <div class="fon-ust"><span class="avatar" style="--c:#fb923c">${ikon('i-nabiz', 20)}</span>
+          <div class="fon-ad">Enflasyon karşısında</div></div>
+        <div style="font-size:13.5px;color:var(--ink-2);line-height:1.65">${n.reelBakis}</div>
+      </div>
+    </div>
+
+    ${(n.takvim ?? []).length ? `
+      <div class="baslik-satir"><h2>Takvimde ne var</h2></div>
+      <div class="liste">
+        ${n.takvim.map((t) => `
+          <div class="satir" style="display:flex;gap:12px;align-items:flex-start">
+            <span class="avatar" style="--c:#60a5fa">${ikon('i-takvim', 20)}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:620">${t.olay}</div>
+              <div class="kaynak">${t.neZaman}</div>
+              <div style="margin-top:4px;font-size:13px;color:var(--ink-2)">${t.nedenOnemli}</div>
+            </div>
+          </div>`).join('')}
+      </div>` : ''}
+
+    ${(n.izlenecekler ?? []).length ? `
+      <div class="baslik-satir"><h2>Neye bakmalı</h2></div>
+      <div class="liste">
+        ${n.izlenecekler.map((i) => `<div class="satir">${i}</div>`).join('')}
+      </div>` : ''}
+
+    <div class="bilgi dikkat" style="margin-top:12px">
+      ${ikon('i-uyari', 17)}
+      <div><b>Bilinmeyenler:</b> ${n.belirsizlik}
+      <br>Bu not bir dil modelinin yorumudur; yatırım tavsiyesi değildir, fiyat tahmini içermez.</div>
+    </div>`;
+}
+
+async function notCek(yenile = false) {
+  const kutu = document.getElementById('not-kutu');
+  if (!yenile && NOT_YUKLENDI) return;
+  NOT_YUKLENDI = true;
+  kutu.innerHTML = '<div class="iskelet" style="height:130px;margin-bottom:10px"></div>' +
+                   '<div class="iskelet" style="height:90px"></div>';
+  try {
+    notCiz(await (await fetch('/api/not' + (yenile ? '?yenile=1' : ''))).json());
+  } catch {
+    kutu.innerHTML = `<div class="bilgi">${ikon('i-bilgi', 17)}<div>Not alınamadı.</div></div>`;
+    NOT_YUKLENDI = false;
+  }
+}
+
+document.getElementById('not-yenile').onclick = async (e) => {
+  const b = e.currentTarget;
+  b.classList.add('doner');
+  await notCek(true);
+  b.classList.remove('doner');
+};
 
 // ========================= FONLAR =========================
 // TEFAS fiyatları çekilemiyor (F5 Shape bot koruması; API uçları kapalı).

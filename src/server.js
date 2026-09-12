@@ -12,6 +12,7 @@ import { haberleriTopla } from './sources/news.js';
 import { yaklasanOlaylar } from './calendar.js';
 import { haremAkis } from './sources/harem.js';
 import { tcmbGostergeler } from './sources/evds.js';
+import { gunlukNot } from './analyst.js';
 import { log, hata, trNow } from './util.js';
 
 envYukle();   // EVDS_API_KEY vb. panel sürecinde de tanımlı olsun
@@ -33,6 +34,9 @@ const durum = {
   canliZaman: null,
   canliHata: null,
   evds: null,           // TCMB resmî göstergeleri (anahtar yoksa null kalır)
+  not: null,            // Claude'un günlük brifingi (ücretli çağrı — istek üzerine)
+  notZaman: null,
+  notUretiliyor: false,
 };
 
 let harem = null;       // Harem Altın kalıcı soket akışı
@@ -117,6 +121,32 @@ async function verileriTazele({ bistDahil = true } = {}) {
   }
 }
 
+// Brifing 6 saatte bir tazelenir: gün içinde birkaç kez güncellenmesi yeterli,
+// her istekte üretmek hem pahalı hem gereksiz.
+const NOT_TAZELIK_MS = 6 * 60 * 60 * 1000;
+
+/** Claude'a verilecek günlük girdi: piyasa + resmî göstergeler + haber + takvim. */
+function notGirdisi() {
+  const anlik = {};
+  for (const x of durum.makro ?? []) {
+    anlik[x.kod] = {
+      ad: x.ad,
+      fiyat: x.fiyat,
+      birim: '',
+      gun: x.getiri?.gun,
+      hafta: x.getiri?.hafta,
+      ay: x.getiri?.ay,
+      yil: x.getiri?.yil,
+    };
+  }
+  return {
+    anlik,
+    evds: durum.evds,
+    haberler: durum.haberler ?? [],
+    olaylar: durum.olaylar ?? [],
+  };
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -168,6 +198,30 @@ const sunucu = http.createServer(async (req, res) => {
     // Netlify tarafındaki /api/evds ile aynı sözleşme.
     if (yol === '/api/evds') {
       return json(res, (await tcmbGostergeler()) ?? { gostergeler: null, kaynak: 'TCMB EVDS' });
+    }
+
+    // Günün notu: Claude brifingi. ÜCRETLİ çağrı — bu yüzden istek üzerine
+    // üretilir ve 6 saat saklanır. ?yenile=1 zorla yeniler.
+    if (yol === '/api/not') {
+      const yenile = url.searchParams.get('yenile') === '1';
+      const bayat = !durum.notZaman || Date.now() - durum.notZaman > NOT_TAZELIK_MS;
+
+      if ((yenile || bayat) && !durum.notUretiliyor) {
+        if (!process.env.ANTHROPIC_API_KEY) {
+          return json(res, { not: null, sebep: 'ANTHROPIC_API_KEY tanımlı değil' });
+        }
+        if (!durum.makro?.length) {
+          return json(res, { not: durum.not, sebep: 'piyasa verisi henüz hazır değil' });
+        }
+        durum.notUretiliyor = true;
+        try {
+          const yeni = await gunlukNot(notGirdisi());
+          if (yeni) { durum.not = yeni; durum.notZaman = Date.now(); }
+        } finally {
+          durum.notUretiliyor = false;
+        }
+      }
+      return json(res, { not: durum.not, zaman: durum.notZaman, uretiliyor: durum.notUretiliyor });
     }
 
     // Hafif uç nokta: sadece canlı fiyatlar. Panel bunu sık çağırır.
