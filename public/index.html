@@ -465,16 +465,20 @@ table.ekran tbody tr:last-child td { border-bottom: 0; }
          border: 1px solid var(--border-2); border-radius: 10px; padding: 8px 11px; font-size: 12px;
          box-shadow: var(--golge); opacity: 0; transition: opacity .12s; max-width: 260px; }
 
-/* Bildirim baloncuğu (alarm tetiklendiğinde) */
+/* Bildirim baloncuğu — alarm tetiklenince ya da kayıt eklenince alttan belirir.
+   Gizleme opacity + visibility ile yapılır: yalnız transform ile kaydırmak
+   yetmiyordu, kutu ekranın altından 88px yukarıda durduğu için görünür kalıyordu. */
 #kabarcik {
-  position: fixed; left: 50%; transform: translate(-50%, 120%); z-index: 70;
+  position: fixed; left: 50%; z-index: 70;
   bottom: calc(88px + env(safe-area-inset-bottom));
   display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 999px;
   background: var(--surface-3); border: 1px solid var(--border-2); box-shadow: var(--golge);
   font-size: 13.5px; font-weight: 600; max-width: calc(100vw - 32px);
-  transition: transform .4s cubic-bezier(.22,.8,.3,1);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transform: translate(-50%, 16px);
+  transition: transform .4s cubic-bezier(.22,.8,.3,1), opacity .25s ease, visibility .25s;
 }
-#kabarcik.gorunur { transform: translate(-50%, 0); }
+#kabarcik.gorunur { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
 #kabarcik svg { width: 17px; height: 17px; color: var(--accent); flex: 0 0 auto; }
 
 /* ===================== MOBİL ===================== */
